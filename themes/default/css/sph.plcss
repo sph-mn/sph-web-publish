@@ -1,0 +1,30 @@
+"/*! minireset.css v0.0.3 | MIT License | github.com/jgthms/minireset.css */html,body,p,ol,ul,li,dl,dt,dd,blockquote,figure,fieldset,legend,textarea,pre,iframe,hr,h1,h2,h3,h4,h5,h6{margin:0;padding:0}h1,h2,h3,h4,h5,h6{font-size:100%;font-weight:normal}ul{list-style:none}button,input,select,textarea{margin:0}html{box-sizing:border-box}*,*:before,*:after{box-sizing:inherit}img,embed,iframe,object,audio,video{height:auto;max-width:100%}iframe{border:0}table{border-collapse:collapse;border-spacing:0}td,th{padding:0;text-align:left}"
+; rules that affect vertical rhythm first
+("html" font-size "12px" line-height "12px" font-family "ocra, monospace")
+((".content" "section") padding-top "1rem")
+
+((".content" "section > div") ("> *" padding-top "0.5rem") ("> section" padding-top "1rem")
+  ("> pre" margin-top "0.5rem" padding-bottom "0.5rem"))
+
+("body" background-color "#f6f6f6" color "#222" padding-left "1px")
+("h1,h2,h3,h4,h5,h6" font-weight bold)
+("h1~:not(h1),h2~:not(h2),h3~:not(h3),h4~:not(h4),h5~:not(h5),h6~:not(h6)" margin-left "2ch")
+("p,pre" max-width "120ch")
+
+("a" color "#048"
+  text-decoration none
+  ("&:hover" color "#37b" text-decoration underline) ("&.external" font-style italic))
+
+("pre" background-color "rgb(229, 231, 232)"
+  color "#333" border-radius "3px" padding-left "0.25rem")
+
+("input,textarea,select" background-color "#fff"
+  font-size "1rem"
+  border "1px solid #048" color "#2b2b2b" padding-left "0.25rem" padding-bottom "0.25rem")
+
+("textarea" width "500px" height "250px")
+("select,a,button" cursor pointer)
+("ul" list-style-type none ("li" line-height 1.25))
+
+("@media screen and (max-device-width: 700px) and (max-device-height: 700px)"
+  ("a" font-size "150%" padding "0.25rem" display "inline-block"))

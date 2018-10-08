@@ -1,0 +1,15 @@
+(".middle" ("> .mtime" color "#808080" position "fixed" top 0 right 0))
+("#tags" text-align "right" color "#808080" font-size "0.5rem")
+("body.start" (".bottom" display none))
+
+(".content" ("> object:only-child" margin-left "-2ch")
+  ("&.plaintext" white-space pre-wrap background-color inherit)
+  ((".library-description" ".library-exports") ("p" white-space pre)))
+
+("@media screen and (max-device-width: 1200px)"
+  (".middle" padding 0 ("> .mtime" position relative)))
+
+("@media (min-width: 140rem)"
+  ("body:not(.start) >"
+    ( (".content.itml" ".content.plaintext") column-count 2
+      -moz-columns 2 columns 2 -moz-column-count 2 -webkit-column-count 2)))
