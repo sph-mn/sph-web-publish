@@ -8,8 +8,8 @@
   (sph string) (sph lang scheme)
   (sxml simple) (sph lang sescript)
   (sph list) (sph one)
-  ;(sph web publish itml)
-  (sph process) (sph alist) (sph hashtable) (sph vector) (sph lang config) (sph filesystem))
+  (sph web publish itml) (sph process)
+  (commonmark) (sph alist) (sph hashtable) (sph vector) (sph lang config) (sph filesystem))
 
 (define program-description
   "sph-web-publish management utility. static site generator. license gpl3+. http://sph.mn")
@@ -21,9 +21,9 @@
 (define swp-env-copy-file (vector-accessor 5))
 (define swp-env-create-thumbnail (vector-accessor 6))
 (define swp-file-handler-name (vector-accessor 0))
-(define swp-file-handler-suffix (vector-accessor 1))
+(define swp-file-handler-match (vector-accessor 1))
 (define swp-file-handler-f (vector-accessor 2))
-(define (swp-file-handler-new name suffix f) (vector name suffix f))
+(define (swp-file-handler-new name match f) (vector name match f))
 
 (define (swp-file-handlers-normalise a)
   (map
@@ -31,13 +31,13 @@
       (map
         (l (a)
           (swp-file-handler-new (swp-file-handler-name a)
-            (let (suffix (swp-file-handler-suffix a))
+            (let (match (swp-file-handler-match a))
               (cond
-                ((string? suffix) (l (path) (string-suffix? suffix path)))
-                ((list? suffix) (l (path) (any (l (a) (string-suffix? a path)) suffix)))
-                ((procedure? suffix) suffix)
-                ((boolean? suffix) (const suffix))
-                (else (raise (q invalid-file-handler-suffix)))))
+                ((string? match) (l (path) (string-suffix? match path)))
+                ((list? match) (l (path) (any (l (a) (string-suffix? a path)) match)))
+                ((procedure? match) match)
+                ((boolean? match) (const match))
+                (else (raise (q invalid-file-handler-match)))))
             (swp-file-handler-f a)))
         passes))
     a))
@@ -64,7 +64,7 @@
               (call-with-output-file
                 (string-append (string-drop-suffix ".sxml" target-path) ".xml")
                 (l (port) (sxml->xml data port))))))
-        (swp-file-handler-new "shxml" ".shtml"
+        (swp-file-handler-new "shtml" ".shtml"
           (l (env path target-path)
             (let (data (file->datums path))
               (call-with-output-file
@@ -75,6 +75,11 @@
             (let (data (file->datums path))
               (call-with-output-file (string-append (string-drop-suffix ".sjs" target-path) ".js")
                 (l (port) (sescript->ecmascript data port))))))
+        (swp-file-handler-new "markdown" ".md"
+          (l (env path target-path)
+            (let (sxml (swp-itml-eval-sxml-inline (call-with-input-file path commonmark->sxml)))
+              (call-with-output-file (string-append (string-drop-suffix ".md" target-path) ".html")
+                (l (port) (sxml->xml sxml port))))))
         (swp-file-handler-new "copy" #t
           (l (env path target-path) ((swp-env-copy-file env) path target-path))))
       ; second pass
@@ -92,7 +97,7 @@
               (if (file-exists? target-path) (delete-file target-path))
               (and (ensure-directory-structure target-dir)
                 ((swp-env-create-thumbnail env) path target-path)))))
-        (swp-file-handler-new "source" (list ".itml" ".plcss" ".shtml" ".sjs" ".sxml")
+        (swp-file-handler-new "source" (list ".itml" ".plcss" ".shtml" ".sjs" ".sxml" ".md")
           (l (env path target-path) "copy sources"
             (let*
               ( (sources-directory-name (ht-ref-q (swp-env-config env) sources-directory-name))
@@ -112,21 +117,23 @@
 
 (define (swp-compile-and-upload env) (and (swp-compile env) (swp-upload env)))
 
-(define (swp-file-system-for-each f file-name) "procedure string:path -> boolean"
+(define (swp-file-system-for-each file-name ignore-path f) "procedure string:path -> boolean"
   (let
     ( (leaf (l (name stat result) (and result (f name stat))))
-      (enter? (l (name stat result) result)) (ignore (l (name stat result) result))
+      (enter? (l (path stat result) (and result (not (string-prefix? ignore-path path)))))
+      (ignore (l (path stat result) result))
       (error
-        (l (name stat errno result)
-          (format (current-error-port) "warning: ~a: ~a~%" name (strerror errno)) #f)))
+        (l (path stat errno result)
+          (format (current-error-port) "warning: ~a: ~a~%" path (strerror errno)) #f)))
     (file-system-fold enter? leaf ignore ignore ignore error #t file-name)))
 
-(define (swp-compile env) (debug-log env)
-  #;(let
-    ( (source-dir (swp-env-data-root env))
-      (target-dir (string-append (swp-env-root env) "compiled/"))
+(define (swp-compile env)
+  (let
+    ( (source-dir (swp-env-directory env))
+      (target-dir (string-append (swp-env-swp-directory env) "compiled/"))
       (file-handlers (swp-env-file-handlers env)))
-    (swp-file-system-for-each
+    (swp-file-system-for-each (remove-trailing-slash source-dir)
+      (remove-trailing-slash (swp-env-swp-directory env))
       (l (path stat-info)
         (and-let*
           ( (handlers
@@ -134,7 +141,7 @@
                 (compact
                   (map
                     (l (file-handlers)
-                      (any (l (a) (and ((swp-file-handler-suffix a) path) a)) file-handlers))
+                      (any (l (a) (and ((swp-file-handler-match a) path) a)) file-handlers))
                     file-handlers)))))
           (let*
             ( (relative-path (string-drop-prefix source-dir path))
@@ -145,8 +152,7 @@
                 (or (and exists (>= (stat:mtime (stat target-path)) (stat:mtime stat-info)))
                   (begin (if exists (delete-file target-path))
                     (every (l (handler) ((swp-file-handler-f handler) env path target-path))
-                      handlers))))))))
-      (remove-trailing-slash source-dir))))
+                      handlers)))))))))))
 
 (define (swp-create-thumbnail-proc size)
   (let (gm-path (first-or-false (search-env-path (list "gm"))))
@@ -165,7 +171,7 @@
       (begin (mkdir swp-directory) (close (open (string-append swp-directory "config") O_CREAT))
         (mkdir (string-append swp-directory "compiled"))))))
 
-(define (swp-env-open directory)
+(define (swp-env-open directory) "directory paths in env must end with a slash"
   (let*
     ( (directory (ensure-trailing-slash (realpath* directory)))
       (swp-directory (string-append directory ".sph-web-publish/")))
