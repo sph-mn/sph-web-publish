@@ -45,7 +45,7 @@
 (define default-config
   (ht-create-symbol-q sources-directory-name "sources"
     thumbnails-directory-name "thumbnails"
-    use-hardlinks #t start "start.html" thumbnail-size 100 feed-rights "creative commons by-nc"))
+    use-hardlinks #t thumbnail-size 100 feed-rights "creative commons by-nc"))
 
 (define swp-file-handlers
   (swp-file-handlers-normalise
