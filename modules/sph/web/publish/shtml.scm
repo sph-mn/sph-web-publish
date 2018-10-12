@@ -1,12 +1,12 @@
 (library (sph web publish shtml)
   (export
+    shtml-include-css
+    shtml-include-js
     shtml-layout
     shtml-lines-if-multiple
     shtml-link
-    shtml-section
-    shtml-include-css
-    shtml-include-js
-    shtml-links)
+    shtml-links
+    shtml-section)
   (import
     (sph)
     (sph lang itml eval shtml)
@@ -44,9 +44,9 @@
           (map-apply
             (l (name url description)
               (if description
-                (list (shtml-link url name) " "
+                (list (q p) (shtml-link url name) " "
                   (if (list? description)
                     (interleave (map (l a (pair (q span) a)) description) "|") description))
-                (shtml-link url name)))
+                (list (q p) (shtml-link url name))))
             link-data))
         (if collapsed (interleave anchors ", ") (shtml-lines-if-multiple anchors))))))

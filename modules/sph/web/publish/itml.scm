@@ -24,7 +24,9 @@
       ( (sph web publish itml env) library-short-description short-description
         links library-documentation link-files include-files)))
 
-  (define (swp-markdown-shtml-get-description a) (debug-log a) null)
+  (define (swp-markdown-shtml-get-description a)
+    ;(debug-log a)
+    null)
 
   (define (shtml-is-heading? a)
     (and (list? a) (not (null? a)) (containsq? (list-q h1 h2 h3 h4 h5 h6) (first a))))
@@ -33,11 +35,11 @@
 
   (define (swp-shtml-adjust-heading-structure a)
     "convert a html structure (heading other ... heading other ...) to
-    ((section h1 (div other ... (section h2 (div other ...)))) (section h1 other ...))"
+     ((section h1 (div other ... (section h2 (div other ...)))) (section h1 other ...))"
     (let*
       ( (combine-what-follows-headings
-          (l (a) (map-consecutive (negate shtml-is-heading?) (l a (pair (q div) a)) a)))
-        (add-sections-around-headings
+          (l (a) (map-span (negate shtml-is-heading?) (l a (pair (q div) a)) a)))
+        (to-denoted-tree
           (l (a)
             (let loop ((a a))
               (if (null? a) a
@@ -49,20 +51,20 @@
                   ( ( (? shtml-is-heading? h) rest ...)
                     (append (list (pair (- (shtml-heading-tag->number (first h)) 1) h))
                       (if (null? rest) rest (loop rest))))
-                  (else (pair (first a) (loop (tail a))))))))))
-      (tree-map-lists
-        (l (a)
-          (match a (((? shtml-is-heading? h) rest ...) (list (q section) h (pair (q div) rest)))
-            (else (debug-log a))))
-        (denoted-tree->prefix-tree (add-sections-around-headings (combine-what-follows-headings a))))
-      #;(denoted-tree->prefix-tree
-        (map
+                  (else (pair (first a) (loop (tail a)))))))))
+        (wrap-section-around-headings
+          (l (a) (map (l (a) (if (shtml-is-heading? a) (list (q section) a) a)) a)))
+        (to-prefix-tree-with-tags
           (l (a)
-            (match a
-              ( ( (quote section) (? shtml-is-heading? h) div ...)
-                (pair (- (shtml-heading-tag->number (first h)) 1) (list h "x")))
-              (else a)))
-      (add-sections-around-headings (combine-what-follows-headings a))))))
+            (tree-map-lists
+              (l (a)
+                (match a
+                  ( ( (? shtml-is-heading? h) rest ...)
+                    (list (q section) h (pair (q div) (wrap-section-around-headings rest))))
+                  (else a)))
+              (denoted-tree->prefix-tree a)))))
+      (wrap-section-around-headings
+        (to-prefix-tree-with-tags (to-denoted-tree (combine-what-follows-headings a))))))
 
   (define (swp-markdown->shtml path itml-state)
     (itml-eval-sxml-inline

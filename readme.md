@@ -1,6 +1,6 @@
 static site generator
 
-*work in progress as of 2018-10*
+sph-web-publish is used for a personal website with some specialised code (custom css, sxml rewriting, extra dependencies and similar) but could be made more generic
 
 # workflow
 * choose a directory and initialise it with `sph-web-publish init`
@@ -13,25 +13,100 @@ static site generator
 * create site navigation and content with special expressions in markdown
 * thumbnails for images are generated
 * source files are by default included in a separate directory next to compiled files
-* atom feed
+
+# example markdown
+```
+# test markdown source
+
+    #(short-description "this is a short description")
+    #links (#:sort #t)
+      ("http://example.com" "example.com" "this is a link description")
+      ("http://example.com" "example.com" "this is a link description")
+      ("http://example.com" "example.com" "this is a link description")
+
+[link](http://sph.mn)
+
+# module
+    #(library-documentation (sph vector))
+```
+
+# command line program
+```
+# sph-web-publish --help
+parameters
+  options ... command argument ...
+options
+  --about | -a
+  --directory=value
+  --help | -h
+  --interface
+commands
+  clean
+  compile
+  compile-and-upload :: [remote ...]
+  init
+  upload :: [remote ...]
+```
+
+# dependencies
+* [guile](https://www.gnu.org/software/guile/)
+* [guile-commonmark](https://github.com/OrangeShark/guile-commonmark)
+* [sph-lib](https://github.com/sph-mn/sph-lib)
+
+# installation
+* copy or symlink `modules/*` into a directory in guiles load path. for example `cp -rt /usr/share/guile/site modules/*`
+* copy or symlink `exe/sph-web-publish` into a directory listed in the `$PATH` environment variable. for example `cp -rt /usr/bin exe/sph-web-publish`
+
+# usage
+create a new site directory
+```
+mkdir mysite
+cd mysite
+sph-web-publish init
+```
+
+use a site directory
+```
+touch myfile
+sph-web-publish compile
+```
 
 # configuration
-edit {site-directory}/.sph-web-publish/config
+edit `{site-directory}/.swp/config`
 
 example configuration file content with all options
 ```
-feed-rights "creative commons by-nc"
 use-hardlinks #t
 sources-directory-name "sources"
 thumbnails-directory-name "thumbnails"
 thumbnail-size 100
+remotes (
+  default "hostname:/tmp/swp-test"
+)
 ```
 
-# internals
-* core modules are installed in the guile module path, the sph-web-publish executable is installed in shell load path
-* a `.sph-web-publish` is added to site directories on initialisation. it contains a config file that can be edited and compiled data
+# current limitations
+* because of personalisation the code additionally depends on [sescript](https://github.com/sph-mn/sescript)
+* the markdown html layout, the enclosing html, is currently not configurable and defined in modules/sph/web/publish/shtml.scm
+* handlers are currently not configurable and defined in exe/sph-web-publish
 
 the format is scheme, as if the content was specified in a quasiquoted list. each pair of expressions is key and value
 
-# usage
-see `./exe/sph-web-publish --help`
+# planned features
+* create linklists from directories
+* include files or the files of directories
+* atom feed generation
+
+# internals
+* a directory named `.swp` is added to site directories on initialisation. it contains a config file that can be edited, and eventually compiled data
+* target files are not updated unless the source is newer. if the source is newer, the target path is first deleted
+* by default, files that are not processed are linked to the target directory
+* files can be processed via a list of handler procedures. a source path can match multiple handlers until one matching handler has the last flag set. there can be catch-all handlers
+* the program finishes with a warning if multiple handlers would create a target file with the same path (for example t.xml and t.sxml would otherwise both become t.xml in the target directory)
+
+## markdown processing
+* itml expressions are parsed when at least one itml expression appears at the beginning of a markdown code block. it does not matter which kind of code block - inline or fenced
+* itml expressions have one of the following initial patterns: `#identifier ##identifier ###identifier #(identifier ##(identifier`
+
+# license
+gpl3+
