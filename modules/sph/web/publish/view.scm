@@ -16,11 +16,6 @@
   (define (shtml-tag-with-style tag style . content)
     (pairs tag (qq (@ (style (unquote style)))) content))
 
-  (define (lines-if-multiple a)
-    "list -> sxml
-     only add lines if \"a\" has more than one element"
-    (if (< 1 (length a)) (itml-shtml-lines a) a))
-
   (define placeholder "_")
 
   (define (page-mtime mtime) "integer -> sxml"
@@ -28,32 +23,7 @@
       (div (@ (class mtime) (title "last modification time of the current page"))
         (unquote (oh-mtime-string mtime)))))
 
-  (define (v-layout v content)
-    (let*
-      ( (swa-env (or (v (q swa-env) #f) (raise (q missing-template-variable-swa-env))))
-        (config (swa-env-config swa-env)) (data (swa-env-data swa-env)))
-      (let
-        ( (title (v (q title) (ht-ref-q config default-page-title)))
-          (css (map shtml-include-css (v (q css) (list))))
-          (js (map shtml-include-javascript (v (q js) (list)))) (top (v (q top) #f))
-          (navigation (v (q navigation) #f)))
-        (qq
-          (html (@ (id top))
-            (head (title (unquote title)) (unquote-splicing css)
-              (meta (@ (name "viewport") (content "width=device-width,initial-scale=1")))
-              (unquote (v (q head))))
-            (body
-              (unquote (or (and-let* ((a (v (q body-class)))) (qq (@ (class (unquote a))))) ""))
-              (unquote
-                (if (or navigation top)
-                  (qq (div (@ (class top)) (unquote navigation) (unquote top))) ""))
-              (unquote (if (null? content) content (qq (div (@ (class middle)) (unquote content)))))
-              (unquote
-                (or
-                  (and-let* ((bottom (v (q bottom) #f)))
-                    (qq (div (@ (class bottom)) (unquote bottom))))
-                  ""))
-              (unquote-splicing js)))))))
+
 
   (define (v-view v content)
     (let
@@ -82,7 +52,7 @@
   (define (v-link-c-default-title id tags)
     (list (qq (span (@ (class "id")) (unquote id))) (string-join tags " ")))
 
-  (define (v-link target title)
+ (define (v-link target title)
     (shtml-hyperlink target title (if (oh-url-external? target) (q ((class "external"))) null)))
 
   (define* (v-link-c url title description thumbnail)
@@ -90,20 +60,6 @@
       ( (thumbnail (if thumbnail (qq (img (@ (src (unquote thumbnail)) (class "preview")))) ""))
         (anchor (link url (list thumbnail title))))
       (if description (list (q p) anchor " " description) anchor)))
-
-  (define (v-links link-data collapsed) "link-data: (name url description)"
-    (if (null? link-data) null
-      (let
-        (anchors
-          (map-apply
-            (l (name url description)
-              (if description
-                (list (link url name) " "
-                  (if (list? description)
-                    (interleave (map (l a (pair (q span) a)) description) "|") description))
-                (link url name)))
-            link-data))
-        (if collapsed (interleave anchors ", ") (lines-if-multiple anchors)))))
 
   (define (v-include-c sxml) (qq (div (@ (class "included")) (unquote-splicing sxml))))
   (define (v-csv data) "(vector ...) -> sxml" (shtml-list->table (map vector->list data)))

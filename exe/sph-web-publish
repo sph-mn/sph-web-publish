@@ -6,10 +6,11 @@
 (import (sph) (sph cli)
   (sph lang plcss) (ice-9 ftw)
   (sph string) (sph lang scheme)
-  (sxml simple) (sph lang sescript)
-  (sph list) (sph one)
-  (sph web publish itml) (sph process)
-  (commonmark) (sph alist) (sph hashtable) (sph vector) (sph lang config) (sph filesystem))
+  (sph web publish shtml) (sxml simple)
+  (sph lang sescript) (sph list)
+  (sph one) (sph web publish itml)
+  (sph process) (commonmark)
+  (sph alist) (sph hashtable) (sph vector) (sph lang config) (sph filesystem))
 
 (define program-description
   "sph-web-publish management utility. static site generator. license gpl3+. http://sph.mn")
@@ -22,24 +23,24 @@
 (define swp-env-create-thumbnail (vector-accessor 6))
 (define swp-file-handler-name (vector-accessor 0))
 (define swp-file-handler-match (vector-accessor 1))
-(define swp-file-handler-f (vector-accessor 2))
-(define (swp-file-handler-new name match f) (vector name match f))
+(define swp-file-handler-last (vector-accessor 2))
+(define swp-file-handler-path-f (vector-accessor 3))
+(define swp-file-handler-f (vector-accessor 4))
+(define (swp-file-handler-new name match last path-f f) (vector name match last path-f f))
+(define (swp-markdown->sxml . a) #t)
 
-(define (swp-file-handlers-normalise a)
+(define (swp-file-handlers-normalise . a)
   (map
-    (l (passes)
-      (map
-        (l (a)
-          (swp-file-handler-new (swp-file-handler-name a)
-            (let (match (swp-file-handler-match a))
-              (cond
-                ((string? match) (l (path) (string-suffix? match path)))
-                ((list? match) (l (path) (any (l (a) (string-suffix? a path)) match)))
-                ((procedure? match) match)
-                ((boolean? match) (const match))
-                (else (raise (q invalid-file-handler-match)))))
-            (swp-file-handler-f a)))
-        passes))
+    (l (a)
+      (swp-file-handler-new (swp-file-handler-name a)
+        (let (match (swp-file-handler-match a))
+          (cond
+            ((string? match) (l (path) (string-suffix? match path)))
+            ((list? match) (l (path) (any (l (a) (string-suffix? a path)) match)))
+            ((procedure? match) match)
+            ((boolean? match) (const match))
+            (else (raise (q invalid-file-handler-match)))))
+        (swp-file-handler-last a) (swp-file-handler-path-f a) (swp-file-handler-f a)))
     a))
 
 (define default-config
@@ -48,111 +49,129 @@
     use-hardlinks #t thumbnail-size 100 feed-rights "creative commons by-nc"))
 
 (define swp-file-handlers
+  ; path-f must not modify the target directory.
+  ; path-f is to collect target-paths and check for conflicts.
   (swp-file-handlers-normalise
-    (list
-      ; first pass
-      (list (swp-file-handler-new "itml" ".itml" (l (env path target-path) #t))
-        (swp-file-handler-new "plcss" ".plcss"
-          (l (env path target-path)
-            (let (data (file->datums path))
-              (call-with-output-file
-                (string-append (string-drop-suffix ".plcss" target-path) ".css")
-                (l (port) (plcss->css data port))))))
-        (swp-file-handler-new "sxml" ".sxml"
-          (l (env path target-path)
-            (let (data (file->datums path))
-              (call-with-output-file
-                (string-append (string-drop-suffix ".sxml" target-path) ".xml")
-                (l (port) (sxml->xml data port))))))
-        (swp-file-handler-new "shtml" ".shtml"
-          (l (env path target-path)
-            (let (data (file->datums path))
-              (call-with-output-file
-                (string-append (string-drop-suffix ".shtml" target-path) ".html")
-                (l (port) (display "<!doctype html>" port) (sxml->xml data port))))))
-        (swp-file-handler-new "sjs" ".sjs"
-          (l (env path target-path)
-            (let (data (file->datums path))
-              (call-with-output-file (string-append (string-drop-suffix ".sjs" target-path) ".js")
-                (l (port) (sescript->ecmascript data port))))))
-        (swp-file-handler-new "markdown" ".md"
-          (l (env path target-path)
-            (let (sxml (swp-itml-eval-sxml-inline (call-with-input-file path commonmark->sxml)))
-              (call-with-output-file (string-append (string-drop-suffix ".md" target-path) ".html")
-                (l (port) (sxml->xml sxml port))))))
-        (swp-file-handler-new "copy" #t
-          (l (env path target-path) ((swp-env-copy-file env) path target-path))))
-      ; second pass
-      (list
-        (swp-file-handler-new "thumbnail" (list ".png" ".jpeg" ".jpg")
-          (l (env path target-path)
-            (let*
-              ( (thumbnails-directory-name
-                  (ht-ref-q (swp-env-config env) thumbnails-directory-name))
-                (target-dir
-                  (string-append (ensure-trailing-slash (dirname target-path))
-                    thumbnails-directory-name))
-                (target-path
-                  (string-append (ensure-trailing-slash target-dir) (basename target-path))))
-              (if (file-exists? target-path) (delete-file target-path))
-              (and (ensure-directory-structure target-dir)
-                ((swp-env-create-thumbnail env) path target-path)))))
-        (swp-file-handler-new "source" (list ".itml" ".plcss" ".shtml" ".sjs" ".sxml" ".md")
-          (l (env path target-path) "copy sources"
-            (let*
-              ( (sources-directory-name (ht-ref-q (swp-env-config env) sources-directory-name))
-                (target-dir
-                  (string-append (ensure-trailing-slash (dirname target-path))
-                    sources-directory-name))
-                (target-path
-                  (string-append (ensure-trailing-slash target-dir) (basename target-path))))
-              (if (file-exists? target-path) (delete-file target-path))
-              (and (ensure-directory-structure target-dir)
-                ((swp-env-copy-file env) path target-path)))))))))
+    (swp-file-handler-new "thumbnail" (list ".png" ".jpeg" ".jpg")
+      #f
+      (l (env target-path)
+        (let*
+          ( (thumbnails-directory-name (ht-ref-q (swp-env-config env) thumbnails-directory-name))
+            (target-dir
+              (let (target-dir (dirname target-path))
+                (string-append
+                  (if (string-equal? "." target-dir) ""
+                    (ensure-trailing-slash (dirname target-path)))
+                  thumbnails-directory-name))))
+          (string-append (ensure-trailing-slash target-dir) (basename target-path))))
+      (l (env path target-path) ((swp-env-create-thumbnail env) path target-path)))
+    (swp-file-handler-new "source" (list ".itml" ".plcss" ".shtml" ".sjs" ".sxml" ".md")
+      #f
+      (l (env target-path)
+        (let*
+          ( (sources-directory-name (ht-ref-q (swp-env-config env) sources-directory-name))
+            (target-dir
+              (let (target-dir (dirname target-path))
+                (string-append
+                  (if (string-equal? "." target-dir) ""
+                    (ensure-trailing-slash (dirname target-path)))
+                  sources-directory-name))))
+          (string-append (ensure-trailing-slash target-dir) (basename target-path))))
+      (l (env path target-path) "copy sources" ((swp-env-copy-file env) path target-path)))
+    (swp-file-handler-new "plcss" ".plcss"
+      #t (l (env target-path) (string-append (string-drop-suffix ".plcss" target-path) ".css"))
+      (l (env path target-path)
+        (let (data (file->datums path))
+          (call-with-output-file target-path (l (port) (plcss->css data port))))))
+    (swp-file-handler-new "sxml" ".sxml"
+      #t (l (env target-path) (string-append (string-drop-suffix ".sxml" target-path) ".xml"))
+      (l (env path target-path)
+        (let (data (file->datums path))
+          (call-with-output-file target-path (l (port) (sxml->xml data port))))))
+    (swp-file-handler-new "shtml" ".shtml"
+      #t (l (env target-path) (string-append (string-drop-suffix ".shtml" target-path) ".html"))
+      (l (env path target-path)
+        (let (data (file->datums path))
+          (call-with-output-file target-path
+            (l (port) (display "<!doctype html>" port) (sxml->xml data port))))))
+    (swp-file-handler-new "sjs" ".sjs"
+      #t (l (env target-path) (string-append (string-drop-suffix ".sjs" target-path) ".js"))
+      (l (env path target-path)
+        (let (data (file->datums path))
+          (call-with-output-file target-path (l (port) (sescript->ecmascript data port))))))
+    (swp-file-handler-new "markdown" ".md"
+      #t (l (env target-path) (string-append (string-drop-suffix ".md" target-path) ".html"))
+      (l (env path target-path)
+        (let (sxml (shtml-layout (swp-markdown->sxml path)))
+          (call-with-output-file target-path
+            (l (port) (display "<!doctype html>" port) (sxml->xml sxml port))))))
+    (swp-file-handler-new "copy" #t
+      #f (l (env target-path) target-path)
+      (l (env path target-path) ((swp-env-copy-file env) path target-path)))))
 
-(define (swp-upload remotes) #t
-  ; each configured remote or first remote
-  ;(list execute "rsync" data-root target)
-  )
-
-(define (swp-compile-and-upload env) (and (swp-compile env) (swp-upload env)))
-
-(define (swp-file-system-for-each file-name ignore-path f) "procedure string:path -> boolean"
+(define (swp-file-system-fold file-name ignore-path init f) "procedure string:path -> boolean"
   (let
-    ( (leaf (l (name stat result) (and result (f name stat))))
+    ( (leaf (l (name stat result) (and result (f name stat result))))
       (enter? (l (path stat result) (and result (not (string-prefix? ignore-path path)))))
       (ignore (l (path stat result) result))
       (error
         (l (path stat errno result)
           (format (current-error-port) "warning: ~a: ~a~%" path (strerror errno)) #f)))
-    (file-system-fold enter? leaf ignore ignore ignore error #t file-name)))
+    (file-system-fold enter? leaf ignore ignore ignore error init file-name)))
+
+(define (duplicates a) (delete-duplicates (filter-map (l (b) (and (< 1 (count-value b a)) b)) a)))
 
 (define (swp-compile env)
-  (let
+  (and-let*
     ( (source-dir (swp-env-directory env))
       (target-dir (string-append (swp-env-swp-directory env) "compiled/"))
-      (file-handlers (swp-env-file-handlers env)))
-    (swp-file-system-for-each (remove-trailing-slash source-dir)
-      (remove-trailing-slash (swp-env-swp-directory env))
-      (l (path stat-info)
-        (and-let*
-          ( (handlers
-              (false-if-null
-                (compact
-                  (map
-                    (l (file-handlers)
-                      (any (l (a) (and ((swp-file-handler-match a) path) a)) file-handlers))
-                    file-handlers)))))
-          (let*
-            ( (relative-path (string-drop-prefix source-dir path))
-              (target-path (string-append target-dir relative-path))
-              (target-path-dir (ensure-trailing-slash (dirname target-path))))
-            (and (ensure-directory-structure target-path-dir)
-              (let (exists (file-exists? target-path))
-                (or (and exists (>= (stat:mtime (stat target-path)) (stat:mtime stat-info)))
-                  (begin (if exists (delete-file target-path))
-                    (every (l (handler) ((swp-file-handler-f handler) env path target-path))
-                      handlers)))))))))))
+      (file-handlers (swp-env-file-handlers env))
+      (path->handlers
+        (l (path) "match one or more handlers"
+          (let loop ((rest file-handlers))
+            (if (null? rest) null
+              (let (a (first rest))
+                (if ((swp-file-handler-match a) path)
+                  (if (swp-file-handler-last a) (list a) (pair a (loop (tail rest))))
+                  (loop (tail rest))))))))
+      (path->target-paths
+        (l (relative-path handlers)
+          (map (l (handler) ((swp-file-handler-path-f handler) env relative-path)) handlers)))
+      (paths-and-handlers
+        (swp-file-system-fold (remove-trailing-slash source-dir)
+          (remove-trailing-slash (swp-env-swp-directory env)) null
+          (l (path stat-info result)
+            (or
+              (and-let*
+                ( (handlers (path->handlers path))
+                  (relative-path (string-drop-prefix source-dir path))
+                  (target-paths (path->target-paths relative-path handlers)))
+                (append result
+                  (map (l (a b) (vector relative-path a path (string-append target-dir a) b))
+                    target-paths handlers)))
+              result))))
+      (paths-and-handlers
+        (let*
+          ; check for duplicates
+          ( (target-paths-flat (map (l (a) (vector-ref a 1)) paths-and-handlers))
+            (target-paths-duplicates (duplicates target-paths-flat)))
+          (if (null? target-paths-duplicates) paths-and-handlers
+            (begin
+              (display-line
+                (string-append "error: conflicting target paths: "
+                  (string-join target-paths-duplicates ", ")))
+              #f)))))
+    (every
+      (l (handler target-path)
+        (let (exists (and target-path (file-exists? target-path)))
+          (or (and exists (>= (stat:mtime (stat target-path)) (stat:mtime stat-info)))
+            (begin (if exists (delete-file target-path))
+              (and (or (not target-path) (ensure-directory-structure (dirname target-path))) #t
+                ;(debug-log path target-path)
+                ;((swp-file-handler-f handler) env path target-path)
+                )))))
+      paths-and-handlers)
+    (debug-log paths-and-handlers)))
 
 (define (swp-create-thumbnail-proc size)
   (let (gm-path (first-or-false (search-env-path (list "gm"))))
@@ -186,6 +205,13 @@
           (create-thumbnail (swp-create-thumbnail-proc (ht-ref-q config thumbnail-size))))
         (vector (q swp-env) directory
           swp-directory config swp-file-handlers copy-file create-thumbnail)))))
+
+(define (swp-upload remotes) #t
+  ; each configured remote or first remote
+  ;(list execute "rsync" data-root target)
+  )
+
+(define (swp-compile-and-upload env) (and (swp-compile env) (swp-upload env)))
 
 (define (cli-command-handler command options) "(string ...) list ->"
   (let ((directory (or (alist-ref-q options directory) (getcwd))))

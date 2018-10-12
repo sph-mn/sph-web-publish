@@ -14,33 +14,6 @@
   (and (string-contains a "short-description")
     (let (b (itml-eval-string a itml)) (and (list? b) (simplify (tail (first b)))))))
 
-(define-as itml-links-name-handlers ht-create-symbol-q
-  b (l (a) "basename" (string-replace-string (string-downcase (basename a)) "_" " "))
-  n
-  (l (a) "basename without suffix"
-    (string-replace-string (remove-filename-extension (basename a)) "_" " "))
-  h url-hostname u url-drop-www-and-protocol)
-
-(define* (itml-links itml url/name/description #:key collapsed sorted)
-  "hashtable ([string:url symbol/string:name string:description]) _ ... -> sxml
-   create hyperlinks with special features for creating the link title.
-       auto-create name from target if name is a symbol or result in \"a\" otherwise.
-   default supported symbols are:
-   b - basename, the basename of the pash of the target
-   h - hostname, the second-level domain of the hostname or the full hostname if there is no second-level domain
-   u - url, the url with the protocol and www. removed
-   n - the basename/file-name of url path without the last filename-extension"
-  (let*
-    ( (link-data
-        (map
-          (l* (url #:optional name description)
-            (let (name (if (symbol? name) ((ht-ref ol-itml-link-name-handlers name) url) name))
-              ; name as first element for sorting
-              (list name url description)))
-          url/name/description))
-      (link-data (if sorted (list-sort-with-accessor string<? first link-data) link-data)))
-    ((ol-itml-state-views-ref-q itml links) link-data collapsed)))
-
 (define (itml-link itml target title) ((itml-state-views-ref-q itml link) target title))
 
 (define (itml-init)
@@ -117,7 +90,8 @@
       (else #f))
     (pair (v-link-c-default-title id tags) #f)))
 
-(define* (itml-link-c itml query #:key limit (title (q content)) (sub-path "view") exclude-tags)
+(define*
+  (itml-link-files itml query #:key limit (title (q content)) (sub-path "view") exclude-tags)
   "create a list of multiple links to content elements.
    title can be a string or one of the symbols title/description/tags"
   (let*

@@ -1,15 +1,29 @@
 (library (sph web publish helper)
   (export
     csv->list
+    quote-triple-second
     url-drop-www-and-protocol
     url-external?
     url-hostname)
   (import
-    (sph))
+    (csv csv)
+    (guile)
+    (ice-9 regex)
+    (sph)
+    (sph string)
+    (web uri))
+
+  (define-syntax-rules quote-triple-second
+    ; quote the second element of each triple.
+    ; example: (a (quote b) c d (quote e) f)
+    (() (quote ())) ((a) (quasiquote ((unquote a))))
+    ((a b) (quasiquote ((unquote a) b)))
+    ( (a b c d ...)
+      (quasiquote ((unquote a) b (unquote c) (unquote-splicing (quote-triple-second d ...))))))
 
   (define url-external?
     (let (protocol-regexp (make-regexp "[a-zA-Z0-9]+://"))
-      (l (a) (and (not (string-prefix? "/" a)) (string-match protocol-regexp a)))))
+      (l (a) (and (not (string-prefix? "/" a)) (regexp-exec protocol-regexp a)))))
 
   (define csv->list
     (let (csv-reader (make-csv-reader #\,))

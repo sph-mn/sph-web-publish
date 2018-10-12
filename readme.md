@@ -4,8 +4,8 @@ static site generator
 
 # workflow
 * choose a directory and initialise it with `sph-web-publish init`
-* add your files to the directory: markdown, html, sxml, css, plcss, javascript, sescript, directories, images or anything else
-* use markdown files for content pages, and use special inline expressions to create automatically generated link lists to content, include content and more
+* add your files to the directory: markdown, html, sxml, css, plcss, javascript, sescript, directories, images and anything else
+* use markdown files for content pages and special inline expressions to create automatically generated link lists to content, include content and more
 * call `sph-web-publish compile`. some file types will be pre-processed. markdown becomes html, plcss becomes css, etc
 * call `sph-web-publish upload {remote}` after having configured a target directory like with `sph-web-publish remote add ssh://myserver/srv/http`
 
