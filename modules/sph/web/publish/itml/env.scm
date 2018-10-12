@@ -1,12 +1,11 @@
 (library (sph web publish itml env)
   (export
+    include-files
     library-documentation
     library-short-description
+    link-files
     links
-    short-description
-    ;include-files
-    ;link-files
-    )
+    short-description)
   (import
     (guile)
     (rnrs sorting)
@@ -22,8 +21,8 @@
     (sph web publish shtml))
 
   (define-syntax-rule (short-description s a ...) (list-q a ...))
-  ;(define-syntax-rule (link-file s query option ...) (itml-link-files s (q query) option ...))
-  ;(define-syntax-rule (include-file s query option ...) (itml-include-files s (q query) option ...))
+  (define-syntax-rule (link-file s query option ...) (itml-link-files s (q query) option ...))
+  (define-syntax-rule (include-file s query option ...) (itml-include-files s (q query) option ...))
 
   (define-syntax-rule (links s (option ...) (url/title/description ...) ...)
     (itml-links s (list (quote-triple-second url/title/description ...) ...) option ...))

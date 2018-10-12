@@ -9,8 +9,7 @@
   (sph web publish shtml) (sxml simple)
   (sph lang sescript) (sph list)
   (sph one) (sph web publish itml)
-  (sph process) (commonmark)
-  (sph alist) (sph hashtable) (sph vector) (sph lang config) (sph filesystem))
+  (sph process) (sph alist) (sph hashtable) (sph vector) (sph lang config) (sph filesystem))
 
 (define program-description
   "sph-web-publish management utility. static site generator. license gpl3+. http://sph.mn")
@@ -21,13 +20,13 @@
 (define swp-env-file-handlers (vector-accessor 4))
 (define swp-env-copy-file (vector-accessor 5))
 (define swp-env-create-thumbnail (vector-accessor 6))
+(define swp-env-itml-state (vector-accessor 7))
 (define swp-file-handler-name (vector-accessor 0))
 (define swp-file-handler-match (vector-accessor 1))
 (define swp-file-handler-last (vector-accessor 2))
 (define swp-file-handler-path-f (vector-accessor 3))
 (define swp-file-handler-f (vector-accessor 4))
 (define (swp-file-handler-new name match last path-f f) (vector name match last path-f f))
-(define (swp-markdown->sxml . a) #t)
 
 (define (swp-file-handlers-normalise . a)
   (map
@@ -102,22 +101,36 @@
     (swp-file-handler-new "markdown" ".md"
       #t (l (env target-path) (string-append (string-drop-suffix ".md" target-path) ".html"))
       (l (env path target-path)
-        (let (sxml (shtml-layout (swp-markdown->sxml path)))
+        (let*
+          ( (shtml (swp-markdown->shtml path (swp-env-itml-state env)))
+            (description (swp-markdown-shtml-get-description shtml))
+            (shtml
+              (shtml-layout shtml #:title
+                (alist-ref-q description title "swp") #:css (list "sph.css"))))
           (call-with-output-file target-path
-            (l (port) (display "<!doctype html>" port) (sxml->xml sxml port))))))
+            (l (port) (display "<!doctype html>" port) (sxml->xml shtml port))))))
     (swp-file-handler-new "copy" #t
       #f (l (env target-path) target-path)
       (l (env path target-path) ((swp-env-copy-file env) path target-path)))))
 
 (define (swp-file-system-fold file-name ignore-path init f) "procedure string:path -> boolean"
   (let
-    ( (leaf (l (name stat result) (and result (f name stat result))))
+    ( (leaf (l (path stat result) (and result (f path stat result))))
       (enter? (l (path stat result) (and result (not (string-prefix? ignore-path path)))))
       (ignore (l (path stat result) result))
       (error
         (l (path stat errno result)
           (format (current-error-port) "warning: ~a: ~a~%" path (strerror errno)) #f)))
     (file-system-fold enter? leaf ignore ignore ignore error init file-name)))
+
+(define (swp-delete-file-recursively file-name)
+  (let
+    ( (leaf (l (path stat result) (delete-file path))) (up (l (path stat result) (rmdir path)))
+      (true (const #t))
+      (error
+        (l (path stat errno result)
+          (format (current-error-port) "warning: ~a: ~a~%" path (strerror errno)) #t)))
+    (file-system-fold true leaf true up true error #t file-name)))
 
 (define (duplicates a) (delete-duplicates (filter-map (l (b) (and (< 1 (count-value b a)) b)) a)))
 
@@ -147,13 +160,12 @@
                   (relative-path (string-drop-prefix source-dir path))
                   (target-paths (path->target-paths relative-path handlers)))
                 (append result
-                  (map (l (a b) (vector relative-path a path (string-append target-dir a) b))
-                    target-paths handlers)))
+                  (map (l (a b) (list path (string-append target-dir a) b)) target-paths handlers)))
               result))))
       (paths-and-handlers
         (let*
           ; check for duplicates
-          ( (target-paths-flat (map (l (a) (vector-ref a 1)) paths-and-handlers))
+          ( (target-paths-flat (map (l (a) (list-ref a 1)) paths-and-handlers))
             (target-paths-duplicates (duplicates target-paths-flat)))
           (if (null? target-paths-duplicates) paths-and-handlers
             (begin
@@ -162,16 +174,16 @@
                   (string-join target-paths-duplicates ", ")))
               #f)))))
     (every
-      (l (handler target-path)
-        (let (exists (and target-path (file-exists? target-path)))
-          (or (and exists (>= (stat:mtime (stat target-path)) (stat:mtime stat-info)))
-            (begin (if exists (delete-file target-path))
-              (and (or (not target-path) (ensure-directory-structure (dirname target-path))) #t
-                ;(debug-log path target-path)
-                ;((swp-file-handler-f handler) env path target-path)
-                )))))
-      paths-and-handlers)
-    (debug-log paths-and-handlers)))
+      (l (a)
+        (apply
+          (l (path target-path handler)
+            (let (exists (file-exists? target-path))
+              (or (and #f exists (>= (stat:mtime (stat target-path)) (stat:mtime (stat path))))
+                (begin (if exists (delete-file target-path))
+                  (and (ensure-directory-structure (dirname target-path))
+                    ((swp-file-handler-f handler) env path target-path))))))
+          a))
+      paths-and-handlers)))
 
 (define (swp-create-thumbnail-proc size)
   (let (gm-path (first-or-false (search-env-path (list "gm"))))
@@ -185,7 +197,7 @@
         (const #t)))))
 
 (define (swp-init directory)
-  (let (swp-directory (string-append directory "/.sph-web-publish/"))
+  (let (swp-directory (string-append directory "/.swp/"))
     (if (not (file-exists? swp-directory))
       (begin (mkdir swp-directory) (close (open (string-append swp-directory "config") O_CREAT))
         (mkdir (string-append swp-directory "compiled"))))))
@@ -193,7 +205,7 @@
 (define (swp-env-open directory) "directory paths in env must end with a slash"
   (let*
     ( (directory (ensure-trailing-slash (realpath* directory)))
-      (swp-directory (string-append directory ".sph-web-publish/")))
+      (swp-directory (string-append directory ".swp/")))
     (and
       (or (file-exists? swp-directory)
         (begin (display-line "error: not a sph-web-publish directory") #f))
@@ -202,23 +214,43 @@
             (ht-copy* default-config
               (l (a) (ht-tree-merge! a (config-read-file (string-append swp-directory "config"))))))
           (copy-file (if (ht-ref-q config use-hardlinks) link copy-file))
-          (create-thumbnail (swp-create-thumbnail-proc (ht-ref-q config thumbnail-size))))
+          (create-thumbnail (swp-create-thumbnail-proc (ht-ref-q config thumbnail-size)))
+          (itml-state (swp-itml-state-create directory)))
         (vector (q swp-env) directory
-          swp-directory config swp-file-handlers copy-file create-thumbnail)))))
+          swp-directory config swp-file-handlers copy-file create-thumbnail itml-state)))))
 
-(define (swp-upload remotes) #t
-  ; each configured remote or first remote
-  ;(list execute "rsync" data-root target)
-  )
+(define (swp-upload env remotes)
+  (and-let*
+    ( (remotes (map string->symbol remotes))
+      (remote-configs (ht-ref (swp-env-config env) (q remotes) (ht-create-symbol)))
+      (remote-configs
+        (filter-map
+          (l (a)
+            (let (b (ht-ref remote-configs a))
+              (if b b
+                (begin
+                  (display-line
+                    (string-append "error: no config found for remote " (symbol->string a)))
+                  #f))))
+          remotes))
+      (compiled (string-append (swp-env-swp-directory env) "compiled/")))
+    (each (l (name target) (execute "rsync" "--recursive" "--progress" compiled target)) remotes
+      remote-configs)))
 
-(define (swp-compile-and-upload env) (and (swp-compile env) (swp-upload env)))
+(define (swp-clean env)
+  (let (dir (string-append (swp-env-swp-directory env) "compiled"))
+    (or (not (file-exists? dir)) (and (swp-delete-file-recursively dir) (mkdir dir)))))
+
+(define (swp-compile-and-upload env remotes) (and (swp-compile env) (swp-upload env remotes)))
 
 (define (cli-command-handler command options) "(string ...) list ->"
-  (let ((directory (or (alist-ref-q options directory) (getcwd))))
-    (string-case (first command) ("init" (swp-init directory))
+  (let
+    ( (directory (or (alist-ref-q options directory) (getcwd)))
+      (remotes (or (alist-ref-q options remote) (q ("default")))))
+    (string-case (first command) ("clean" (swp-clean (swp-env-open directory)))
       ("compile" (swp-compile (swp-env-open directory)))
-      ("upload" (swp-upload (swp-env-open directory)))
-      ("compile-and-upload" (swp-compile-and-upload (swp-env-open directory)))
+      ("compile-and-upload" (swp-compile-and-upload (swp-env-open directory) remotes))
+      ("init" (swp-init directory)) ("upload" (swp-upload (swp-env-open directory) remotes))
       (else (display-line "invalid-command") #f))))
 
 (define cli
@@ -226,10 +258,11 @@
     #:options (list-q ((command argument ...)) (directory #:value-required? #t))
     #:command-handler cli-command-handler
     #:commands
-    (list-qq (("compile") #:description "update all files under data/")
+    (list-qq (("clean") #:description "remove compiled files")
+      (("compile") #:description "update all files under data/")
       (("compile-and-upload") ((remote ...)) #:description "compile and on success upload")
       ( ("init") #:description
-        "initialise the current directory for sph-web-publish. creates a .sph-web-publish directory")
+        "initialise the current directory for sph-web-publish. creates a .swp directory")
       (("upload") ((remote ...)) #:description "update files on the configured server"))))
 
 (define (swp-cli) (if (null? (tail (program-arguments))) (cli (list "--help")) (cli)))
