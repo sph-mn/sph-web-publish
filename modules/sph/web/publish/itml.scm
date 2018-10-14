@@ -12,14 +12,20 @@
     (sph lang itml eval)
     (sph lang itml eval shtml)
     (sph list)
+    (sph string)
     (sph tree)
     (only (srfi srfi-1) take))
 
   (define sph-web-publish-itml-description "support for itml expressions in guile commonmark sxml")
 
+  (define* (string->datums a #:optional (reader read)) "get all scheme expression from a string"
+    (let (a (open-input-string a))
+      (let loop () (let (b (reader a)) (if (eof-object? b) (list) (pair b (loop)))))))
+
   (define-as swp-itml-module (make-sandbox-module append)
     core-bindings string-bindings
-    symbol-bindings
+    symbol-bindings list-bindings
+    number-bindings
     (list-q
       ( (sph web publish itml env) library-short-description short-description
         links library-documentation link-files include-files)))
@@ -66,15 +72,44 @@
       (wrap-section-around-headings
         (to-prefix-tree-with-tags (to-denoted-tree (combine-what-follows-headings a))))))
 
-  (define (swp-markdown->shtml path itml-state)
+  #;(define (swp-markdown->shtml path itml-state)
     (itml-eval-sxml-inline
       (swp-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml))
       (list (itml-state-stack itml-state) (itml-state-depth itml-state)
         swp-itml-module (vector-copy (itml-state-data itml-state)))))
 
+  (define (swp-markdown->shtml path directory)
+    (md-sxml-scm-eval
+      (swp-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)) directory))
+
   (define (swp-itml-state-create directory)
     (itml-state-create #:module swp-itml-module
       #:exceptions #t #:recursion #t #:user-data directory))
+
+  (define (md-sxml-scm-eval a directory)
+    (let
+      ( (scm-prefix? (l (a) (and string? (string-prefix? "%scm " a))))
+        (escaped-scm-prefix? (l (a) (and string? (string-prefix? "%%scm " a))))
+        (scm-eval
+          (l (a)
+            "multiple four space indented md code blocks come as one block, even with an empty line inbetween.
+            doesnt match indented code block with escaped prefix following indented block with prefix"
+            (let
+              (expressions (map string->datums (string-split-regexp (string-drop a 5) "\n%scm ")))
+              (map-apply
+                (l* (identifier . arguments)
+                  (eval-in-sandbox (pairs identifier directory arguments) #:time-limit
+                    2 #:allocation-limit 100000000 #:module swp-itml-module #:sever-module? #f))
+                expressions)))))
+      (tree-transform a
+        (l (a recurse)
+          (match a (((quote pre) ((quote code) (? scm-prefix? b))) (list (scm-eval b) #f))
+            (((quote code) (? scm-prefix? b)) (list (scm-eval b) #f))
+            ( ( (quote pre) ((quote code) (? escaped-scm-prefix? content)))
+              (list (string-drop content 1) #f))
+            (((quote code) (? escaped-scm-prefix? content)) (list (string-drop content 1) #f))
+            (else (list #f #t))))
+        identity identity)))
 
   (define (itml-eval-sxml-inline sxml itml-state)
     "evaluate itml expressions in sxml created by commonmark.

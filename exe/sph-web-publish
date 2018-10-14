@@ -102,7 +102,7 @@
       #t (l (env target-path) (string-append (string-drop-suffix ".md" target-path) ".html"))
       (l (env path target-path)
         (let*
-          ( (shtml (swp-markdown->shtml path (swp-env-itml-state env)))
+          ( (shtml (swp-markdown->shtml path (swp-env-directory env)))
             (description (swp-markdown-shtml-get-description shtml))
             (shtml
               (shtml-layout shtml #:title

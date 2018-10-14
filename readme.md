@@ -1,6 +1,6 @@
 static site generator
 
-sph-web-publish is used for a personal website with some specialised code (custom css, sxml rewriting, extra dependencies and similar) but could be made more generic
+sph-web-publish is currently used for a personal website with some specialised code (custom css, sxml rewriting, extra dependencies and similar) but could be made more generic
 
 # workflow
 * choose a directory and initialise it with `sph-web-publish init`
@@ -27,6 +27,7 @@ sph-web-publish is used for a personal website with some specialised code (custo
 [link](http://sph.mn)
 
 # module
+
     #(library-documentation (sph vector))
 ```
 
@@ -85,16 +86,14 @@ remotes (
 )
 ```
 
-# current limitations
-* because of personalisation the code additionally depends on [sescript](https://github.com/sph-mn/sescript)
-* the markdown html layout, the enclosing html, is currently not configurable and defined in modules/sph/web/publish/shtml.scm
-* handlers are currently not configurable and defined in exe/sph-web-publish
-
 the format is scheme, as if the content was specified in a quasiquoted list. each pair of expressions is key and value
 
+# current limitations
+* because of personalisation, the code additionally depends on [sescript](https://github.com/sph-mn/sescript)
+* the markdown html layout, the enclosing html, is currently not configurable and defined in `modules/sph/web/publish/shtml.scm`
+* handlers are currently not configurable and defined in exe/sph-web-publish
+
 # planned features
-* create linklists from directories
-* include files or the files of directories
 * atom feed generation
 
 # internals
@@ -102,7 +101,7 @@ the format is scheme, as if the content was specified in a quasiquoted list. eac
 * target files are not updated unless the source is newer. if the source is newer, the target path is first deleted
 * by default, files that are not processed are linked to the target directory
 * files can be processed via a list of handler procedures. a source path can match multiple handlers until one matching handler has the last flag set. there can be catch-all handlers
-* the program finishes with a warning if multiple handlers would create a target file with the same path (for example t.xml and t.sxml would otherwise both become t.xml in the target directory)
+* the program stops with an error message if multiple handlers would create a target file with the same path (for example t.xml and t.sxml would otherwise both become t.xml in the target directory)
 
 ## markdown processing
 * itml expressions are parsed when at least one itml expression appears at the beginning of a markdown code block. it does not matter which kind of code block - inline or fenced

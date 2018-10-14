@@ -8,6 +8,8 @@
     short-description)
   (import
     (guile)
+    (ice-9 ftw)
+    (ice-9 regex)
     (rnrs sorting)
     (sph)
     (sph documentation)
@@ -21,8 +23,78 @@
     (sph web publish shtml))
 
   (define-syntax-rule (short-description s a ...) (list-q a ...))
-  (define-syntax-rule (link-file s query option ...) (itml-link-files s (q query) option ...))
-  (define-syntax-rule (include-file s query option ...) (itml-include-files s (q query) option ...))
+  ;(define-syntax-rule (link-files s pattern ...) (link-files s pattern ...))
+
+  (define-syntax-rule (include-files s query option ...)
+    (itml-include-files s (q query) option ...))
+
+  (define pattern->paths
+    (let*
+      ( (double-asterisk (make-regexp "^\\*\\*([0-9]+)?$"))
+        (parse-skip
+          (l (a)
+            "**:  of directories
+             **n: "
+            (and-let* ((a (regexp-exec double-asterisk a)))
+              (let (depth (match:substring a 1)) (if depth (string->number depth) (inf))))))
+        (parse-match
+          (l (a)
+            (make-regexp
+              (string-append "^"
+                (string-replace-string (regexp-quote (string-replace-string a "*" "///")) "///"
+                  ".*")
+                "$")))))
+      (l (root pattern)
+        "find files under directory \"root\" matching \"pattern\".
+        pattern is a filesystem path with optional wildcard characters.
+        * in a file name matches zero or more of any character.
+        ? in a file name matches one of any character
+        ** skips any sub directories to match the following path. at the end of a path it is the same as **/.*
+        **n where n is an integer. like ** but skips nested directories at most n subdirectories deep.
+        examples
+          directory: directory/**1
+          directory/**: directory/**n
+          directory/**/test.html"
+
+        (let*
+          ( (parsed
+              (let
+                (pattern (if (string-suffix? "**" pattern) (string-append pattern "/*") pattern))
+                (map (l (a) (or (parse-skip a) (parse-match a))) (string-split pattern #\/))))
+            (scandir* (l (a) (scandir a (l (a) (not (string-prefix? "." a)))))))
+          (let loop
+            ( (path (remove-trailing-slash root)) (files (scandir* root)) (result null)
+              (directories null) (parsed parsed) (skip 0))
+            (if (null? parsed) result
+              (if (null? files)
+                (append result
+                  (let (parsed (if (< 0 skip) parsed (tail parsed)))
+                    (append-map
+                      (l (path) "directory paths are full paths"
+                        (loop path (scandir* path) null null parsed (- skip 1)))
+                      directories)))
+                (let*
+                  ( (pattern (first parsed)) (file (first files))
+                    (file-path (string-append path "/" file)))
+                  (cond
+                    ( (number? pattern)
+                      (loop path files result directories (tail parsed) (+ pattern skip)))
+                    ( (regexp? pattern)
+                      (if (regexp-exec pattern file)
+                        (if (directory? file-path)
+                          (loop path (tail files) result (pair file-path directories) parsed skip)
+                          (loop path (tail files) (pair file-path result) directories parsed skip))
+                        (loop path (tail files)
+                          result (if (directory? file-path) (pair file-path directories) directories)
+                          parsed skip))))))))))))
+
+  (define (link-files s . patterns)
+    "** skips sub directories
+     * matches files
+     directory: directory/**1
+     directory/**: directory/**n
+     directory/**/test.html"
+    (map (l (a) (debug-log (pattern->paths s a))) patterns) "")
 
   (define-syntax-rule (links s (option ...) (url/title/description ...) ...)
     (itml-links s (list (quote-triple-second url/title/description ...) ...) option ...))
