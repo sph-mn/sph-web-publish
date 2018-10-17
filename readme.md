@@ -28,7 +28,7 @@ sph-web-publish currently has some personalised code (custom css, sxml rewriting
 
 # module
 
-    #(library-documentation (sph vector))
+    %scm library-documentation (sph vector)
 ```
 
 # command line program
