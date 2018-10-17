@@ -1,8 +1,7 @@
-(library (sph web publish itml)
+(library (sph web publish markdown)
   (export
-    swp-itml-state-create
     swp-markdown->shtml
-    swp-markdown-shtml-get-description)
+    swp-markdown-get-description)
   (import
     (commonmark)
     (guile)
@@ -16,30 +15,29 @@
     (sph tree)
     (only (srfi srfi-1) take))
 
-  (define sph-web-publish-itml-description "support for itml expressions in guile commonmark sxml")
-
-  (define* (string->datums a #:optional (reader read)) "get all scheme expression from a string"
-    (let (a (open-input-string a))
-      (let loop () (let (b (reader a)) (if (eof-object? b) (list) (pair b (loop)))))))
-
-  (define-as swp-itml-module (make-sandbox-module append)
-    core-bindings string-bindings
-    symbol-bindings list-bindings
-    number-bindings
-    (list-q
-      ( (sph web publish itml env) library-short-description short-description
-        links library-documentation link-files include-files)))
-
-  (define (swp-markdown-shtml-get-description a)
-    ;(debug-log a)
-    null)
+  (define sph-web-publish-markdown-description
+    "support for itml expressions in guile commonmark sxml")
 
   (define (shtml-is-heading? a)
     (and (list? a) (not (null? a)) (containsq? (list-q h1 h2 h3 h4 h5 h6) (first a))))
 
   (define (shtml-heading-tag->number a) (string->number (string-drop (symbol->string a) 1)))
 
-  (define (swp-shtml-adjust-heading-structure a)
+  (define* (string->datums a #:optional (reader read))
+    "string -> list
+     get all scheme expression from a string"
+    (let (a (open-input-string a))
+      (let loop () (let (b (reader a)) (if (eof-object? b) (list) (pair b (loop)))))))
+
+  (define-as md-scm-env (make-sandbox-module append)
+    core-bindings string-bindings
+    symbol-bindings list-bindings
+    number-bindings
+    (list-q
+      ( (sph web publish markdown scm-env) library-short-description short-description
+        links library-documentation link-files include-files)))
+
+  (define (md-shtml-adjust-heading-structure a)
     "convert a html structure (heading other ... heading other ...) to
      ((section h1 (div other ... (section h2 (div other ...)))) (section h1 other ...))"
     (let*
@@ -72,21 +70,7 @@
       (wrap-section-around-headings
         (to-prefix-tree-with-tags (to-denoted-tree (combine-what-follows-headings a))))))
 
-  #;(define (swp-markdown->shtml path itml-state)
-    (itml-eval-sxml-inline
-      (swp-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml))
-      (list (itml-state-stack itml-state) (itml-state-depth itml-state)
-        swp-itml-module (vector-copy (itml-state-data itml-state)))))
-
-  (define (swp-markdown->shtml path directory)
-    (md-sxml-scm-eval
-      (swp-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)) directory))
-
-  (define (swp-itml-state-create directory)
-    (itml-state-create #:module swp-itml-module
-      #:exceptions #t #:recursion #t #:user-data directory))
-
-  (define (md-sxml-scm-eval a directory)
+  (define (md-shtml-scm-eval a directory)
     (let
       ( (scm-prefix? (l (a) (and string? (string-prefix? "%scm " a))))
         (escaped-scm-prefix? (l (a) (and string? (string-prefix? "%%scm " a))))
@@ -110,6 +94,17 @@
             (((quote code) (? escaped-scm-prefix? content)) (list (string-drop content 1) #f))
             (else (list #f #t))))
         identity identity)))
+
+  (define (swp-markdown-shtml-get-description a)
+    "get title and description from a markdown content file" null)
+
+  (define (swp-markdown->shtml path directory)
+    (md-sxml-scm-eval
+      (swp-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)) directory))
+
+  #;(define (swp-itml-state-create directory)
+    (itml-state-create #:module swp-itml-module
+      #:exceptions #t #:recursion #t #:user-data directory))
 
   (define (itml-eval-sxml-inline sxml itml-state)
     "evaluate itml expressions in sxml created by commonmark.
