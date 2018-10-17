@@ -11,6 +11,8 @@
     (ice-9 regex)
     (sph)
     (sph string)
+    (sph web atom)
+    (sxml simple)
     (web uri))
 
   (define-syntax-rules quote-triple-second
@@ -36,4 +38,21 @@
 
   (define (url-hostname a) "string -> string"
     (let (a-split (string-split (uri-host (string->uri a)) #\.))
-      (if (= 3 (length a-split)) (second a-split) (first a-split)))))
+      (if (= 3 (length a-split)) (second a-split) (first a-split))))
+
+  (define* (atom-feed-from-files paths port #:key title rights)
+    (let*
+      ( (mtimes-and-paths (map (compose stat:mtime stat) paths))
+        (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths))))
+        (sxml
+          (atom-feed title title
+            most-recent-update #:rights
+            rights null
+            (map
+              (l (a)
+                a
+                #;(atom-entry id title
+                  updated #:key
+                  authors categories content contributors link published rights source summary))
+              mtimes-and-paths))))
+      (display "<?xml version=\"1.0\"?>" port) (sxml->xml sxml port))))

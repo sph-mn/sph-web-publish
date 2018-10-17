@@ -1,14 +1,14 @@
 #!/usr/bin/guile
 !#
 
-; todo: itml convert, csv convert, atom feed, upload, configurable theme/layout
+; todo: csv convert, atom feed, upload, configurable theme/layout
 
 (import (sph) (sph cli)
   (sph lang plcss) (ice-9 ftw)
   (sph string) (sph lang scheme)
   (sph web publish shtml) (sxml simple)
   (sph lang sescript) (sph list)
-  (sph one) (sph web publish itml)
+  (sph other) (sph web publish markdown)
   (sph process) (sph alist) (sph hashtable) (sph vector) (sph lang config) (sph filesystem))
 
 (define program-description
@@ -16,11 +16,11 @@
 
 (define swp-env-directory (vector-accessor 1))
 (define swp-env-swp-directory (vector-accessor 2))
-(define swp-env-config (vector-accessor 3))
-(define swp-env-file-handlers (vector-accessor 4))
-(define swp-env-copy-file (vector-accessor 5))
-(define swp-env-create-thumbnail (vector-accessor 6))
-(define swp-env-itml-state (vector-accessor 7))
+(define swp-env-swp-target-directory (vector-accessor 3))
+(define swp-env-config (vector-accessor 4))
+(define swp-env-file-handlers (vector-accessor 5))
+(define swp-env-copy-file (vector-accessor 6))
+(define swp-env-create-thumbnail (vector-accessor 7))
 (define swp-file-handler-name (vector-accessor 0))
 (define swp-file-handler-match (vector-accessor 1))
 (define swp-file-handler-last (vector-accessor 2))
@@ -64,7 +64,7 @@
                   thumbnails-directory-name))))
           (string-append (ensure-trailing-slash target-dir) (basename target-path))))
       (l (env path target-path) ((swp-env-create-thumbnail env) path target-path)))
-    (swp-file-handler-new "source" (list ".itml" ".plcss" ".shtml" ".sjs" ".sxml" ".md")
+    (swp-file-handler-new "source" (list ".md" ".plcss" ".shtml" ".sjs" ".sxml" ".md")
       #f
       (l (env target-path)
         (let*
@@ -102,11 +102,13 @@
       #t (l (env target-path) (string-append (string-drop-suffix ".md" target-path) ".html"))
       (l (env path target-path)
         (let*
-          ( (shtml (swp-markdown->shtml path (swp-env-directory env)))
-            (description (swp-markdown-shtml-get-description shtml))
+          ( (shtml (swp-md->shtml path (swp-env-swp-target-directory env)))
+            (title (swp-md-get-title path))
             (shtml
               (shtml-layout shtml #:title
-                (alist-ref-q description title "swp") #:css (list "sph.css"))))
+                (or (and title (first title))
+                  (string-drop-suffix-if-exists ".html" (basename path)))
+                #:css (list "sph.css"))))
           (call-with-output-file target-path
             (l (port) (display "<!doctype html>" port) (sxml->xml shtml port))))))
     (swp-file-handler-new "copy" #t
@@ -136,8 +138,7 @@
 
 (define (swp-compile env)
   (and-let*
-    ( (source-dir (swp-env-directory env))
-      (target-dir (string-append (swp-env-swp-directory env) "compiled/"))
+    ( (source-dir (swp-env-directory env)) (target-dir (swp-env-swp-target-directory env))
       (file-handlers (swp-env-file-handlers env))
       (path->handlers
         (l (path) "match one or more handlers"
@@ -214,10 +215,10 @@
             (ht-copy* default-config
               (l (a) (ht-tree-merge! a (config-read-file (string-append swp-directory "config"))))))
           (copy-file (if (ht-ref-q config use-hardlinks) link copy-file))
-          (create-thumbnail (swp-create-thumbnail-proc (ht-ref-q config thumbnail-size)))
-          (itml-state (swp-itml-state-create directory)))
+          (create-thumbnail (swp-create-thumbnail-proc (ht-ref-q config thumbnail-size))))
         (vector (q swp-env) directory
-          swp-directory config swp-file-handlers copy-file create-thumbnail itml-state)))))
+          swp-directory (string-append swp-directory "compiled/")
+          config swp-file-handlers copy-file create-thumbnail)))))
 
 (define (swp-upload env remotes)
   (and-let*
@@ -233,12 +234,12 @@
                     (string-append "error: no config found for remote " (symbol->string a)))
                   #f))))
           remotes))
-      (compiled (string-append (swp-env-swp-directory env) "compiled/")))
+      (compiled (swp-env-swp-target-directory env)))
     (each (l (name target) (execute "rsync" "--recursive" "--progress" compiled target)) remotes
       remote-configs)))
 
 (define (swp-clean env)
-  (let (dir (string-append (swp-env-swp-directory env) "compiled"))
+  (let (dir (swp-env-swp-target-directory env))
     (or (not (file-exists? dir)) (and (swp-delete-file-recursively dir) (mkdir dir)))))
 
 (define (swp-compile-and-upload env remotes) (and (swp-compile env) (swp-upload env remotes)))

@@ -1,27 +1,22 @@
 (library (sph web publish markdown)
   (export
-    swp-markdown->shtml
-    swp-markdown-get-description)
+    swp-md->shtml
+    swp-md-get-title)
   (import
     (commonmark)
     (guile)
     (ice-9 match)
     (ice-9 sandbox)
+    (rnrs io ports)
     (sph)
-    (sph lang itml eval)
-    (sph lang itml eval shtml)
     (sph list)
     (sph string)
     (sph tree)
-    (only (srfi srfi-1) take))
+    (sph web publish shtml)
+    (only (srfi srfi-1) find-tail take))
 
   (define sph-web-publish-markdown-description
     "support for itml expressions in guile commonmark sxml")
-
-  (define (shtml-is-heading? a)
-    (and (list? a) (not (null? a)) (containsq? (list-q h1 h2 h3 h4 h5 h6) (first a))))
-
-  (define (shtml-heading-tag->number a) (string->number (string-drop (symbol->string a) 1)))
 
   (define* (string->datums a #:optional (reader read))
     "string -> list
@@ -34,36 +29,36 @@
     symbol-bindings list-bindings
     number-bindings
     (list-q
-      ( (sph web publish markdown scm-env) library-short-description short-description
-        links library-documentation link-files include-files)))
+      ( (sph web publish markdown scm-env) library-short-description library-documentation
+        link-files include-files)))
 
   (define (md-shtml-adjust-heading-structure a)
     "convert a html structure (heading other ... heading other ...) to
      ((section h1 (div other ... (section h2 (div other ...)))) (section h1 other ...))"
     (let*
       ( (combine-what-follows-headings
-          (l (a) (map-span (negate shtml-is-heading?) (l a (pair (q div) a)) a)))
+          (l (a) (map-span (negate shtml-heading?) (l a (pair (q div) a)) a)))
         (to-denoted-tree
           (l (a)
             (let loop ((a a))
               (if (null? a) a
                 (match a
-                  ( ( (? shtml-is-heading? h) ((quote div) div ...) rest ...)
+                  ( ( (? shtml-heading? h) ((quote div) div ...) rest ...)
                     (let (depth (- (shtml-heading-tag->number (first h)) 1))
                       (append (pair (pair depth h) (map (l (a) (pair (+ 1 depth) a)) div))
                         (if (null? rest) rest (loop rest)))))
-                  ( ( (? shtml-is-heading? h) rest ...)
+                  ( ( (? shtml-heading? h) rest ...)
                     (append (list (pair (- (shtml-heading-tag->number (first h)) 1) h))
                       (if (null? rest) rest (loop rest))))
                   (else (pair (first a) (loop (tail a)))))))))
         (wrap-section-around-headings
-          (l (a) (map (l (a) (if (shtml-is-heading? a) (list (q section) a) a)) a)))
+          (l (a) (map (l (a) (if (shtml-heading? a) (list (q section) a) a)) a)))
         (to-prefix-tree-with-tags
           (l (a)
             (tree-map-lists
               (l (a)
                 (match a
-                  ( ( (? shtml-is-heading? h) rest ...)
+                  ( ( (? shtml-heading? h) rest ...)
                     (list (q section) h (pair (q div) (wrap-section-around-headings rest))))
                   (else a)))
               (denoted-tree->prefix-tree a)))))
@@ -83,7 +78,7 @@
               (map-apply
                 (l* (identifier . arguments)
                   (eval-in-sandbox (pairs identifier directory arguments) #:time-limit
-                    2 #:allocation-limit 100000000 #:module swp-itml-module #:sever-module? #f))
+                    2 #:allocation-limit 100000000 #:module md-scm-env #:sever-module? #f))
                 expressions)))))
       (tree-transform a
         (l (a recurse)
@@ -95,27 +90,17 @@
             (else (list #f #t))))
         identity identity)))
 
-  (define (swp-markdown-shtml-get-description a)
-    "get title and description from a markdown content file" null)
+  (define (swp-md-get-title file)
+    "sxml -> (string/false:title . string/description)
+     parse title and description from a markdown file.
+     title must be a top level heading on the first line an description
+     must be the line following the title"
+    (call-with-input-file file
+      (l (port)
+        (let (a (get-line port))
+          (if (or (eof-object? a) (not (string-prefix? "# " a))) #f
+            (let (b (get-line port)) (pair (string-drop a 2) (if (eof-object? b) #f b))))))))
 
-  (define (swp-markdown->shtml path directory)
-    (md-sxml-scm-eval
-      (swp-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)) directory))
-
-  #;(define (swp-itml-state-create directory)
-    (itml-state-create #:module swp-itml-module
-      #:exceptions #t #:recursion #t #:user-data directory))
-
-  (define (itml-eval-sxml-inline sxml itml-state)
-    "evaluate itml expressions in sxml created by commonmark.
-     only evaluate itml expressions in code blocks, and only if the first character in the block is #"
-    (let (string-and-hash-prefix? (l (a) (and string? (string-prefix? "#" a))))
-      (tree-transform sxml
-        (l (a recurse)
-          (match a
-            ( ( (quote pre) ((quote code) (? string-and-hash-prefix? content)))
-              (list (simplify-list (itml-shtml-eval-string content itml-state)) #f))
-            ( ( (quote code) (? string-and-hash-prefix? content))
-              (list (simplify-list (itml-shtml-eval-string content itml-state)) #f))
-            (else (list #f #t))))
-        identity identity))))
+  (define (swp-md->shtml path directory)
+    (md-shtml-scm-eval
+      (md-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)) directory)))
