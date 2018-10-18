@@ -1,15 +1,20 @@
 (library (sph web publish helper)
   (export
-    csv->list
     quote-triple-second
-    url-drop-www-and-protocol
-    url-external?
-    url-hostname)
+    swp-atom-feed-from-files
+    swp-config-read
+    swp-create-thumbnail-proc
+    swp-csv->list
+    swp-delete-file-recursively
+    swp-file-handlers-normalise
+    swp-file-system-fold
+    swp-url-external?)
   (import
     (csv csv)
     (guile)
     (ice-9 regex)
     (sph)
+    (sph lang scheme)
     (sph string)
     (sph web atom)
     (sxml simple)
@@ -23,24 +28,17 @@
     ( (a b c d ...)
       (quasiquote ((unquote a) b (unquote c) (unquote-splicing (quote-triple-second d ...))))))
 
-  (define url-external?
+  (define swp-url-external?
     (let (protocol-regexp (make-regexp "[a-zA-Z0-9]+://"))
       (l (a) (and (not (string-prefix? "/" a)) (regexp-exec protocol-regexp a)))))
 
-  (define csv->list
+  (define swp-csv->list
     (let (csv-reader (make-csv-reader #\,))
       (l (file-path) (call-with-input-file file-path csv-reader))))
 
-  (define (url-drop-www-and-protocol a) "string -> string"
-    (string-drop-prefix-if-exists "www."
-      (if (string-prefix? "https://" a) (string-drop-prefix "https://" a)
-        (if (string-prefix? "http://" a) (string-drop-prefix "http://" a) a))))
+  (define (swp-config-read path) (list->alist (file->datums path)))
 
-  (define (url-hostname a) "string -> string"
-    (let (a-split (string-split (uri-host (string->uri a)) #\.))
-      (if (= 3 (length a-split)) (second a-split) (first a-split))))
-
-  (define* (atom-feed-from-files paths port #:key title rights)
+  (define* (swp-atom-feed-from-files paths port #:key title rights)
     (let*
       ( (mtimes-and-paths (map (compose stat:mtime stat) paths))
         (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths))))
@@ -49,10 +47,55 @@
             most-recent-update #:rights
             rights null
             (map
-              (l (a)
-                a
+              (l (a) a
                 #;(atom-entry id title
                   updated #:key
                   authors categories content contributors link published rights source summary))
               mtimes-and-paths))))
-      (display "<?xml version=\"1.0\"?>" port) (sxml->xml sxml port))))
+      (display "<?xml version=\"1.0\"?>" port) (sxml->xml sxml port)))
+
+  (define (swp-file-system-fold file-name ignore-path init f) "procedure string:path -> boolean"
+    (let
+      ( (leaf (l (path stat result) (and result (f path stat result))))
+        (enter? (l (path stat result) (and result (not (string-prefix? ignore-path path)))))
+        (ignore (l (path stat result) result))
+        (error
+          (l (path stat errno result)
+            (format (current-error-port) "warning: ~a: ~a~%" path (strerror errno)) #f)))
+      (file-system-fold enter? leaf ignore ignore ignore error init file-name)))
+
+  (define (swp-delete-file-recursively file-name)
+    (let
+      ( (leaf (l (path stat result) (delete-file path))) (up (l (path stat result) (rmdir path)))
+        (true (const #t))
+        (error
+          (l (path stat errno result)
+            (format (current-error-port) "warning: ~a: ~a~%" path (strerror errno)) #t)))
+      (file-system-fold true leaf true up true error #t file-name)))
+
+  (define (swp-create-thumbnail-proc size)
+    (let (gm-path (first-or-false (search-env-path (list "gm"))))
+      (if gm-path
+        (let* ((size (number->string size)) (size-string (string-append size "x" size)))
+          (l (path target-path)
+            (execute gm-path "convert"
+              "-size" size-string
+              path "-resize" size-string "+profile" "*" (string-append "jpeg:" target-path))))
+        (begin (display-line "warning: gm utility not found. thumbnail processing deactivated")
+          (const #t)))))
+
+  (define (swp-file-handlers-normalise . a)
+    "accept strings, list of strings, booleans and procedures as
+     file name matcher and create a matcher procedure"
+    (map
+      (l (a)
+        (swp-file-handler-new (swp-file-handler-name a)
+          (let (match (swp-file-handler-match a))
+            (cond
+              ((string? match) (l (path) (string-suffix? match path)))
+              ((list? match) (l (path) (any (l (a) (string-suffix? a path)) match)))
+              ((procedure? match) match)
+              ((boolean? match) (const match))
+              (else (raise (q invalid-file-handler-match)))))
+          (swp-file-handler-last a) (swp-file-handler-path-f a) (swp-file-handler-f a)))
+      a)))

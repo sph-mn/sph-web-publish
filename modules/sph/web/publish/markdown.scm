@@ -19,12 +19,6 @@
   (define sph-web-publish-markdown-description
     "support for itml expressions in guile commonmark sxml")
 
-  (define* (string->datums a #:optional (reader read))
-    "string -> list
-     get all scheme expression from a string"
-    (let (a (open-input-string a))
-      (let loop () (let (b (reader a)) (if (eof-object? b) (list) (pair b (loop)))))))
-
   (define (swp-md-scm-env-new)
     (make-sandbox-module
       (append core-bindings string-bindings
