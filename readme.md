@@ -78,19 +78,20 @@ sph-web-publish compile
 * `sph-web-publish clean` deletes all the compiled files
 
 ## markdown processing
+* when using link-files with html files that where compiled from markdown, title and description are read from the markdown file. title is read only from the first line when it starts with a level one heading. description is only read from the second line when it follows a title. when the html file is not compiled from markdown, the title is read from the content of the title tag if it exists
 * scheme expressions are only parsed when the `%scm ` prefix appears right at the beginning of a markdown code block. it does not matter which kind of code block - inline or fenced
-* note that multiple four spaces indented code blocks that follow another with only whitespace inbetween get joined by the markdown parser as if they were a one code block
-* multiple scheme expressions can occur in one code block as long as all expressions are started with `%scm ` as the first characters of the code block line
-* the prefix can be escaped with `%%scm` in which case the unparsed string `%scm` remains
+* note that multiple four spaces indented code blocks that follow another with only whitespace inbetween get joined by the markdown parser as if they were one code block
+* multiple scheme expressions can occur in one code block as long as all expressions begin with `%scm ` as the first characters of a code block line
+* the prefix can be escaped with `%%scm`, in which case the unparsed string `%scm` remains
 * only a limited set of bindings is available and expressions are evaluated with guiles `eval-in-sandbox`
 
-besides `core-bindings string-bindings symbol-bindings list-bindings number-bindings` the following features are available:
+besides `core-bindings`, `string-bindings`, `symbol-bindings`, `list-bindings`, `number-bindings` the following features are available
 
 ### link-files :: paths ...
 create a list of links to compiled files. file globbing can be used with `*` and `**` as for `filesystem-glob` of sph-lib `(sph filesystem)`
 
 ### include-files :: paths ...
-like link-files but includes files via an html <object> tag
+like link-files but includes files via an html object tag
 
 ### library-documentation :: (module name)
 list formatted binding names and docstrings of the specified library.
@@ -139,8 +140,6 @@ the following file types are currently compiled:
 * .sxml -> xml
 * .plcss -> css
 * .sjs -> js
-
-all other file types are copied
 
 # license
 gpl3+

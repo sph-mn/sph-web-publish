@@ -19,6 +19,7 @@
     (sph list)
     (sph string)
     (sph web publish helper)
+    (sph web publish markdown)
     (sph web publish shtml)
     (sxml match)
     (sxml simple))
@@ -29,24 +30,39 @@
   (define-syntax-rule (library-short-description s name option ...)
     (md-scm-library-short-description s (q name) option ...))
 
-  (define html-get-title
-    (let (title-regexp (make-regexp "<title>(.)*?</title>"))
-      (l (file)
-        (and-let* ((a (regexp-exec title-regexp (file->string file))))
-          (string-drop (string-drop-right (match:substring a) 8) 7)))))
+  (define link-files-get-title
+    (let*
+      ( (html-title-regexp (make-regexp "<title>(.)*?</title>"))
+        (html-get-title
+          (l (file)
+            (let (a (regexp-exec html-title-regexp (file->string file)))
+              (pair (and a (string-drop (string-drop-right (match:substring a) 8) 7)) #f)))))
+      (l (directory relative-path full-path)
+        "string string:relative-path -> false/(string . false/string)
+        get title and description from file content"
+        (cond
+          ( (string-suffix? ".html" relative-path)
+            (let
+              (source
+                (string-append (dirname (dirname directory)) "/"
+                  (string-drop-right relative-path 5) ".md"))
+              (if (file-exists? source) (swp-md-get-title source) (html-get-title full-path))))
+          (else (pair #f #f))))))
 
   (define (link-files directory . paths)
-    "accepts file paths with optional wildcard characters like (sph filesystem) filesystem-glob.
+    "string:compiled-directory string ... -> shtml
+     accepts file paths with optional wildcard characters like (sph filesystem) filesystem-glob.
      example: directory/**/*.html"
     (let (paths (append-map (l (a) (filesystem-glob (string-append directory a))) paths))
       (shtml-links
         (filter-map
           (l (a)
             (and (not (directory? a))
-              (let
-                ( (title (and (string-suffix? ".html" a) (html-get-title a)))
-                  (target (string-drop-prefix directory a)))
-                (list target (or title target) #f))))
+              (let*
+                ( (relative-path (string-drop-prefix directory a))
+                  (title (link-files-get-title directory relative-path a)) (description (tail title))
+                  (title (first title)))
+                (list relative-path (or title relative-path) description))))
           paths)
         #f)))
 

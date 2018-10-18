@@ -1,7 +1,8 @@
 (library (sph web publish markdown)
   (export
     swp-md->shtml
-    swp-md-get-title)
+    swp-md-get-title
+    swp-md-scm-env-new)
   (import
     (commonmark)
     (guile)
@@ -24,13 +25,14 @@
     (let (a (open-input-string a))
       (let loop () (let (b (reader a)) (if (eof-object? b) (list) (pair b (loop)))))))
 
-  (define-as md-scm-env (make-sandbox-module append)
-    core-bindings string-bindings
-    symbol-bindings list-bindings
-    number-bindings
-    (list-q
-      ( (sph web publish markdown scm-env) library-short-description library-documentation
-        link-files include-files)))
+  (define (swp-md-scm-env-new)
+    (make-sandbox-module
+      (append core-bindings string-bindings
+        symbol-bindings list-bindings
+        number-bindings
+        (list-q
+          ( (sph web publish markdown scm-env) library-short-description library-documentation
+            link-files include-files)))))
 
   (define (md-shtml-adjust-heading-structure a)
     "convert a html structure (heading other ... heading other ...) to
@@ -65,7 +67,7 @@
       (wrap-section-around-headings
         (to-prefix-tree-with-tags (to-denoted-tree (combine-what-follows-headings a))))))
 
-  (define (md-shtml-scm-eval a directory)
+  (define (md-shtml-scm-eval env a directory)
     (let
       ( (scm-prefix? (l (a) (and string? (string-prefix? "%scm " a))))
         (escaped-scm-prefix? (l (a) (and string? (string-prefix? "%%scm " a))))
@@ -78,7 +80,7 @@
               (map-apply
                 (l* (identifier . arguments)
                   (eval-in-sandbox (pairs identifier directory arguments) #:time-limit
-                    2 #:allocation-limit 100000000 #:module md-scm-env #:sever-module? #f))
+                    2 #:allocation-limit 100000000 #:module env #:sever-module? #f))
                 expressions)))))
       (tree-transform a
         (l (a recurse)
@@ -90,17 +92,20 @@
             (else (list #f #t))))
         identity identity)))
 
+  (define nonword-regexp (make-regexp "\\W"))
+
   (define (swp-md-get-title file)
-    "sxml -> (string/false:title . string/description)
+    "sxml -> (false/string:title . string/false:description)
      parse title and description from a markdown file.
      title must be a top level heading on the first line an description
-     must be the line following the title"
+     must be the line following the title. the description must start with a word character"
     (call-with-input-file file
       (l (port)
         (let (a (get-line port))
-          (if (or (eof-object? a) (not (string-prefix? "# " a))) #f
-            (let (b (get-line port)) (pair (string-drop a 2) (if (eof-object? b) #f b))))))))
+          (if (or (eof-object? a) (not (string-prefix? "# " a))) (pair #f #f)
+            (let (b (get-line port))
+              (pair (string-drop a 2) (if (or (eof-object? b) (regexp-exec nonword-regexp b)) #f b))))))))
 
-  (define (swp-md->shtml path directory)
-    (md-shtml-scm-eval
+  (define (swp-md->shtml env path directory)
+    (md-shtml-scm-eval env
       (md-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)) directory)))

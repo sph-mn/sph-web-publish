@@ -27,6 +27,7 @@
 (define swp-file-handler-path-f (vector-accessor 3))
 (define swp-file-handler-f (vector-accessor 4))
 (define (swp-file-handler-new name match last path-f f) (vector name match last path-f f))
+(define md-scm-env (swp-md-scm-env-new))
 
 (define (swp-file-handlers-normalise . a)
   (map
@@ -102,7 +103,7 @@
       #t (l (env target-path) (string-append (string-drop-suffix ".md" target-path) ".html"))
       (l (env path target-path)
         (let*
-          ( (shtml (swp-md->shtml path (swp-env-swp-target-directory env)))
+          ( (shtml (swp-md->shtml md-scm-env path (swp-env-swp-target-directory env)))
             (title (swp-md-get-title path))
             (shtml
               (shtml-layout shtml #:title
