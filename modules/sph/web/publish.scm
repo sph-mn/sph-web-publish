@@ -213,7 +213,7 @@
               (target-paths-duplicates (duplicates target-paths-flat)))
             (if (null? target-paths-duplicates) paths-and-handlers
               (raise (list (q conflicting-target-paths) (string-join target-paths-duplicates ", ")))))))
-      ;paths-and-handlers: ((handler ...):phase ...)
+      ; paths-and-handlers: ((handler ...):phase ...)
       (and (let (a (alists-ref-q (swp-env-config env) hooks before-compile)) (if a (a env) #t))
         (every
           (l (a)

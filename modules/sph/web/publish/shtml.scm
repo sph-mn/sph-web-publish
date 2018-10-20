@@ -89,10 +89,14 @@
             link-data))
         (if collapsed (interleave anchors ", ") (shtml-lines-if-multiple anchors)))))
 
-  (define* (shtml-object url #:optional (attributes null))
+  (define* (shtml-object url #:optional (attributes null) (params null))
     "string string -> sxml
      sxml for an html <object> tag"
-    (qq (object (@ (data (unquote url)) (unquote-splicing attributes)) "")))
+    (qq
+      (object (@ (data (unquote url)) (unquote-splicing attributes))
+        (unquote
+          (map (l (a) (qq (param (@ (name (unquote (first a))) (value (unquote (tail a)))))))
+            params)))))
 
   (define (shtml-include path)
     (qq (div (@ (class "included")) (unquote (shtml-object path (list-q (class "included")))))))
