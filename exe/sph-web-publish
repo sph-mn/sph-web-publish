@@ -1,7 +1,5 @@
 #!/usr/bin/guile
 !#
 
-; todo: csv convert, atom feed, upload, configurable theme/layout
-
-(define (swp-cli) (if (null? (tail (program-arguments))) (cli (list "--help")) (cli)))
-(swp-cli)
+(import (sph) (sph web publish))
+(swp-default-cli)

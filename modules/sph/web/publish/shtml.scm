@@ -1,6 +1,16 @@
 (library (sph web publish shtml)
   (export
-    swp-shtml-views)
+    shtml-hyperlink
+    shtml-include
+    shtml-include-css
+    shtml-include-javascript
+    shtml-layout
+    shtml-lines
+    shtml-lines-if-multiple
+    shtml-link
+    shtml-links
+    shtml-object
+    shtml-section)
   (import
     (sph)
     (sph hashtable)
@@ -11,26 +21,18 @@
     (sph web shtml)
     (only (guile) string-drop))
 
-  (define*
-    (layout content #:key (title "") (css null) (js null) top navigation head body-class bottom)
+  (define* (shtml-layout content #:key (title "") (css null) (js null) head body-class top bottom)
     (qq
       (html
         (head (title (unquote title)) (unquote-splicing (map shtml-include-css css))
           (meta (@ (name "viewport") (content "width=device-width,initial-scale=1"))) (unquote head))
         (body (unquote (if body-class (qq (@ (class (unquote body-class)))) null))
-          (unquote
-            (if (or navigation top) (qq (div (@ (class top)) (unquote navigation) (unquote top)))
-              null))
+          (unquote (if top (qq (div (@ (class top)) (unquote top))) null))
           (unquote (if content (qq (div (@ (class middle)) (unquote content))) null))
           (unquote (if bottom (qq (div (@ (class bottom)) (unquote bottom))) null))
           (unquote-splicing (map shtml-include-javascript js))))))
 
-  (define (heading? a)
-    (and (list? a) (not (null? a)) (containsq? (list-q h1 h2 h3 h4 h5 h6) (first a))))
-
-  (define (heading-tag->number a) (string->number (string-drop (symbol->string a) 1)))
-
-  (define lines
+  (define shtml-lines
     (let*
       ( (inline-html-tags
           (ht-from-list
@@ -64,52 +66,49 @@
                         b))))
                 (pair (line-wrap a) b))))))))
 
-  (define (lines-if-multiple a)
+  (define (shtml-lines-if-multiple a)
     "list -> sxml
      only add lines if \"a\" has more than one element"
-    (if (< 1 (length a)) (lines a) a))
+    (if (< 1 (length a)) (shtml-lines a) a))
 
-  (define (link target title)
-    (shtml-hyperlink target title (if (url-external? target) (q ((class "external"))) null)))
+  (define (shtml-link target title)
+    (shtml-hyperlink target title (if (swp-url-external? target) (q ((class "external"))) null)))
 
-  (define (links link-data collapsed) "link-data: (name url description)"
+  (define (shtml-links link-data collapsed) "link-data: (name url description)"
     (if (null? link-data) null
       (let
         (anchors
           (map-apply
             (l (name url description)
               (if description
-                (list (q p) (link url name)
+                (list (q p) (shtml-link url name)
                   " "
                   (if (list? description)
                     (interleave (map (l a (pair (q span) a)) description) "|") description))
-                (list (q p) (link url name))))
+                (list (q p) (shtml-link url name))))
             link-data))
-        (if collapsed (interleave anchors ", ") (lines-if-multiple anchors)))))
+        (if collapsed (interleave anchors ", ") (shtml-lines-if-multiple anchors)))))
 
-  (define* (object url #:optional (attributes null))
+  (define* (shtml-object url #:optional (attributes null))
     "string string -> sxml
      sxml for an html <object> tag"
     (qq (object (@ (data (unquote url)) (unquote-splicing attributes)) "")))
 
-  (define (include path)
-    (qq (div (@ (class "included")) (unquote (object path (list-q (class "included")))))))
+  (define (shtml-include path)
+    (qq (div (@ (class "included")) (unquote (shtml-object path (list-q (class "included")))))))
 
-  (define (csv data) "(vector ...) -> sxml" (list->table (map vector->list data)))
-  (define (plaintext a) (text->sxml a))
-  (define (preformatted a) (list (q pre) a))
+  (define (shtml-csv data) "(vector ...) -> sxml" (shtml-list->table (map vector->list data)))
+  (define (shtml-plaintext a) (shtml-text->sxml a))
+  (define (shtml-preformatted a) (list (q pre) a))
 
-  (define* (navigation link-data) "((name . string:url) ...) -> sxml"
+  (define* (shtml-navigation link-data) "((name . string:url) ...) -> sxml"
     (if (null? link-data) null
       (let*
-        ((links (map (l (a) (link (tail a) (first a))) link-data)) (links (interleave links ", ")))
+        ( (links (map (l (a) (shtml-link (tail a) (first a))) link-data))
+          (links (interleave links ", ")))
         (qq (nav (@ (class "main")) (unquote-splicing links))))))
 
-  (define (page-mtime mtime) "integer -> sxml"
+  (define (shtml-page-mtime mtime) "integer -> sxml"
     (qq
       (div (@ (class mtime) (title "last modification time of the current page"))
-        (unquote (utc->ymd (s->ns mtime))))))
-
-  (define-as swp-shtml-views ht-create-binding
-    heading-tag->number heading?
-    hyperlink include include-css include-js layout lines lines-if-multiple link links object section))
+        (unquote (utc->ymd (s->ns mtime)))))))

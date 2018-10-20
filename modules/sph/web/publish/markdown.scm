@@ -10,9 +10,11 @@
     (ice-9 sandbox)
     (rnrs io ports)
     (sph)
+    (sph lang scheme)
     (sph list)
     (sph string)
     (sph tree)
+    (sph web publish helper)
     (sph web publish shtml)
     (only (srfi srfi-1) find-tail take))
 
@@ -46,7 +48,7 @@
                   ( ( (? shtml-heading? h) rest ...)
                     (append (list (pair (- (shtml-heading-tag->number (first h)) 1) h))
                       (if (null? rest) rest (loop rest))))
-                  (else (pair (first a) (loop (tail a)))))))))
+                  (else (pair (pair 0 (first a)) (loop (tail a)))))))))
         (wrap-section-around-headings
           (l (a) (map (l (a) (if (shtml-heading? a) (list (q section) a) a)) a)))
         (to-prefix-tree-with-tags

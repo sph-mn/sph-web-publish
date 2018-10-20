@@ -1,6 +1,8 @@
 (library (sph web publish helper)
   (export
     quote-triple-second
+    shtml-heading-tag->number
+    shtml-heading?
     swp-atom-feed-from-files
     swp-config-read
     swp-create-thumbnail-proc
@@ -12,9 +14,14 @@
   (import
     (csv csv)
     (guile)
+    (ice-9 ftw)
     (ice-9 regex)
     (sph)
+    (sph alist)
     (sph lang scheme)
+    (sph list)
+    (sph other)
+    (sph process)
     (sph string)
     (sph web atom)
     (sxml simple)
@@ -36,6 +43,10 @@
     (let (csv-reader (make-csv-reader #\,))
       (l (file-path) (call-with-input-file file-path csv-reader))))
 
+  (define (shtml-heading? a)
+    (and (list? a) (not (null? a)) (containsq? (list-q h1 h2 h3 h4 h5 h6) (first a))))
+
+  (define (shtml-heading-tag->number a) (string->number (string-drop (symbol->string a) 1)))
   (define (swp-config-read path) (list->alist (file->datums path)))
 
   (define* (swp-atom-feed-from-files paths port #:key title rights)
@@ -82,20 +93,4 @@
               "-size" size-string
               path "-resize" size-string "+profile" "*" (string-append "jpeg:" target-path))))
         (begin (display-line "warning: gm utility not found. thumbnail processing deactivated")
-          (const #t)))))
-
-  (define (swp-file-handlers-normalise . a)
-    "accept strings, list of strings, booleans and procedures as
-     file name matcher and create a matcher procedure"
-    (map
-      (l (a)
-        (swp-file-handler-new (swp-file-handler-name a)
-          (let (match (swp-file-handler-match a))
-            (cond
-              ((string? match) (l (path) (string-suffix? match path)))
-              ((list? match) (l (path) (any (l (a) (string-suffix? a path)) match)))
-              ((procedure? match) match)
-              ((boolean? match) (const match))
-              (else (raise (q invalid-file-handler-match)))))
-          (swp-file-handler-last a) (swp-file-handler-path-f a) (swp-file-handler-f a)))
-      a)))
+          (const #t))))))

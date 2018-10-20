@@ -11,6 +11,7 @@
     (rnrs io ports)
     (rnrs sorting)
     (sph)
+    (sph alist)
     (sph documentation)
     (sph documentation shtml)
     (sph filesystem)
