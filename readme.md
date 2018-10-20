@@ -266,4 +266,4 @@ the default configuration contains handlers to automatically compile files with 
 * .plcss -> css
 
 # history
-sph-web-publish was created after trying to reduce the complexity of a dynamic web application that was the past basis of a personal website. it is basically the simplified successor of `sph-cms`
+sph-web-publish was created after trying to reduce the complexity of a dynamic web application that was the basis of a personal website. it is basically the simplified successor of `sph-cms`
