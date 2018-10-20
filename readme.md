@@ -86,7 +86,7 @@ sph-web-publish compile
 * the prefix can be escaped with `%%scm`, in which case the unparsed string `%scm` remains
 * only a limited set of bindings is available and expressions are evaluated with guiles `eval-in-sandbox`
 
-besides `core-bindings`, `string-bindings`, `symbol-bindings`, `list-bindings`, `number-bindings` the following features are available
+besides `core-bindings`, `string-bindings`, `symbol-bindings`, `list-bindings` and `number-bindings` the following features are available
 
 ### link-files :: paths ...
 create a list of links to compiled files. file globbing can be used with `*` and `**` as for `filesystem-glob` of sph-lib `(sph filesystem)`
@@ -138,18 +138,18 @@ a sph-web-publish command line interface with further customised configuration c
 
 example
 ```
-(import (ice-9 sandbox) (sph alist) (sph web publish) (sph web publish shtml))
+(import (ice-9 sandbox) (sph web publish) (sph web publish shtml))
 
 (define sph-info-md-scm-env
   (make-sandbox-module
     (append core-bindings string-bindings
       symbol-bindings list-bindings
       number-bindings
-      (list-q
-        ( (sph web publish markdown scm-env) library-short-description library-documentation
-          link-files include-files)
-        ( (sph-info markdown-scm-env) sph-info-audio-playlist sph-info-software-list
-          sph-info-test-io sph-info-software-list-grouped)))))
+      (quote
+        ( ( (sph web publish markdown scm-env) library-short-description library-documentation
+            link-files include-files)
+          ( (sph-info markdown-scm-env) sph-info-audio-playlist sph-info-software-list
+            sph-info-test-io sph-info-software-list-grouped))))))
 
 (define (sph-info-shtml-layout a . b)
   "extend shtml-layout from (sph web publish shtml)"
@@ -220,6 +220,13 @@ file handlers is a list of lists, one list for each pass. one pass is the proces
 file-handlers: ((file-handler ...):pass ...)
 
 a file-handler is a vector best created with `swp-file-handler-new :: name match last path-f f -> vector`.
+
+* name: a custom string
+* match: a string to match filename extensions, a list of strings to match multiple filename extensions, true to match all files or a procedure `string:path -> boolean`
+* last: true if no more handlers of the current pass should be used, false if more handlers should possibly match
+* path-f: a procedure for generating the full path a handler will write to. `swp-env string:relative-path -> false/string:target-path`
+* f: a file handler procedure `swp-env source-path target-path -> boolean`. all paths are full paths. if result is false, all processing is aborted
+
 for example, here the default handler for sxml
 ```
 (swp-file-handler-new "sxml" ".sxml" #t
@@ -230,11 +237,20 @@ for example, here the default handler for sxml
       (call-with-output-file target-path (lambda (port) (sxml->xml data port))))))
 ```
 
-* name: a custom string
-* match: a string to match filename extensions, a list of strings to match multiple filename extensions, true to match all files or a procedure `string:path -> boolean`
-* last: true if no more handlers of the current pass should be used, false if more handlers should possibly match
-* path-f: a procedure for generating the full path a handler will write to. `swp-env string:relative-path -> false/string:target-path`
-* f: a file handler procedure `swp-env source-path target-path -> boolean`. all paths are full paths. if result is false, all processing is aborted
+### markdown scm expressions
+procedures to be used in inline scheme expressions receive the path to the temporary compile target directory as the first argument and return sxml
+
+for example
+```
+(define (table directory . cells)
+  (create-table-shtml cells))
+```
+
+syntax is also supported. for example defined by
+```
+(define-syntax-rule (table directory cell ...)
+  (create-table-shtml (quote (cell ...))))
+```
 
 # internals
 * a directory named `.swp` is added to site directories on initialisation. it contains a config file that can be edited, and eventually compiled data
