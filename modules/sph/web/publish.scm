@@ -16,7 +16,8 @@
     swp-file-handler-last
     swp-file-handler-match
     swp-file-handler-name
-    swp-file-handler-path-f)
+    swp-file-handler-path-f
+    swp-remove-disabled-file-handlers)
   (import
     (guile)
     (ice-9 ftw)
@@ -29,7 +30,6 @@
     (sph lang config)
     (sph lang plcss)
     (sph lang scheme)
-    (sph lang sescript)
     (sph list)
     (sph other)
     (sph process)
@@ -58,9 +58,9 @@
   (define (swp-file-handlers-normalise . a)
     "accept strings, list of strings, booleans and procedures as
      file name matcher and create a matcher procedure.
-     ensure that handler lists for 3 phases are given - only 3 phases are supported"
+     ensure that handler lists for 3 passes are given - only 3 passes are supported"
     (map
-      (l (phase)
+      (l (pass)
         (map
           (l (a)
             (let (match (swp-file-handler-match a))
@@ -73,7 +73,7 @@
                     ((boolean? match) (const match))
                     (else (raise (q invalid-file-handler-match))))
                   (swp-file-handler-last a) (swp-file-handler-path-f a) (swp-file-handler-f a)))))
-          phase))
+          pass))
       a))
 
   (define (unzip3* a) "like unzip3 but allows input lists to be shorter"
@@ -82,13 +82,13 @@
       (fold-right (l (a result) (if (< 2 (length a)) (pair (third a) result) result)) null a)))
 
   (define-as swp-default-file-handlers swp-file-handlers-normalise
-    ; result is a list of lists of file handlers, one list per phase.
+    ; result is a list of lists of file handlers, one list per pass.
     ; path-f must not modify the target directory.
     ; path-f is to collect target-paths and check for conflicts.
-    ; file handler-f can be false
+    ; handler-f can be false for a no-op
     (list
-      ; phase 1
-      (swp-file-handler-new "thumbnail" (list ".png" ".jpeg" ".jpg")
+      ; pass 1
+      (swp-file-handler-new "thumbnails" (list ".png" ".jpeg" ".jpg")
         #f
         (l (env target-path)
           (let*
@@ -101,8 +101,9 @@
                       (ensure-trailing-slash (dirname target-path)))
                     thumbnails-directory-name))))
             (string-append (ensure-trailing-slash target-dir) (basename target-path))))
-        (l (env path target-path) ((swp-env-create-thumbnail env) path target-path)))
-      (swp-file-handler-new "source" (list ".md" ".plcss" ".shtml" ".sjs" ".sxml" ".md")
+        (l (env path target-path) "create thumbnails for images"
+          ((swp-env-create-thumbnail env) path target-path)))
+      (swp-file-handler-new "sources" (list ".md" ".plcss" ".shtml" ".sjs" ".sxml" ".md")
         #f
         (l (env target-path)
           (let*
@@ -114,7 +115,10 @@
                       (ensure-trailing-slash (dirname target-path)))
                     sources-directory-name))))
             (string-append (ensure-trailing-slash target-dir) (basename target-path))))
-        (l (env path target-path) "copy sources" ((swp-env-copy-file env) path target-path)))
+        (l (env path target-path)
+          "for files that are compiled, include the source in a subdirectory next to it.
+        for example the source t.md will create t.html and sources/t.md"
+          ((swp-env-copy-file env) path target-path)))
       (swp-file-handler-new "plcss" ".plcss"
         #t (l (env target-path) (string-append (string-drop-suffix ".plcss" target-path) ".css"))
         (l (env path target-path)
@@ -131,17 +135,12 @@
           (let (data (file->datums path))
             (call-with-output-file target-path
               (l (port) (display "<!doctype html>" port) (sxml->xml data port))))))
-      (swp-file-handler-new "sjs" ".sjs"
-        #t (l (env target-path) (string-append (string-drop-suffix ".sjs" target-path) ".js"))
-        (l (env path target-path)
-          (let (data (file->datums path))
-            (call-with-output-file target-path (l (port) (sescript->ecmascript data port))))))
       (swp-file-handler-new "ignore" ".md" #t (const #f) #f)
       (swp-file-handler-new "copy" #t
         #f (l (env target-path) target-path)
         (l (env path target-path) ((swp-env-copy-file env) path target-path))))
     (list
-      ; phase 2
+      ; pass 2
       (swp-file-handler-new "markdown" ".md"
         #t (l (env target-path) (string-append (string-drop-suffix ".md" target-path) ".html"))
         (l (env path target-path)
@@ -171,9 +170,11 @@
     shtml-layout shtml-layout
     file-handlers swp-default-file-handlers
     hooks (alist-q before-upload null before-compile null after-compile (list swp-atom-feed-task))
-    sources-directory-name "sources"
-    thumbnails-directory-name "thumbnails"
-    use-hardlinks #t thumbnail-size 100 feed-rights "creative commons by-nc")
+    sources-directory-name #f
+    ;"sources"
+    thumbnails-directory-name #f
+    ;"thumbnails"
+    use-hardlinks #t thumbnail-size 100)
 
   (define (call-hook env name)
     (every (l (a) (a env)) (or (alists-ref (swp-env-config env) (q hooks) name) null)))
@@ -185,8 +186,8 @@
         (path->handlers
           (l (path) "match one or more handlers"
             (map
-              (l (phase-handlers)
-                (let loop ((rest phase-handlers))
+              (l (pass-handlers)
+                (let loop ((rest pass-handlers))
                   (if (null? rest) null
                     (let (a (first rest))
                       (if ((swp-file-handler-match a) path)
@@ -225,7 +226,7 @@
               (target-paths-duplicates (duplicates target-paths-flat)))
             (if (null? target-paths-duplicates) paths-and-handlers
               (raise (list (q conflicting-target-paths) (string-join target-paths-duplicates ", ")))))))
-      ; paths-and-handlers: ((handler ...):phase ...)
+      ; paths-and-handlers: ((handler ...):pass ...)
       (and (call-hook env (q before-compile))
         (every
           (l (a)
@@ -273,6 +274,18 @@
         (begin (mkdir swp-directory) (close (open (string-append swp-directory "config") O_CREAT))
           (mkdir (string-append swp-directory "compiled"))))))
 
+  (define (swp-remove-disabled-file-handlers config a)
+    (fold (l (proc a) (proc a)) a
+      (list
+        (l (a)
+          (if (alist-ref-q config sources-directory-name) a
+            (pair (remove (l (a) (string-equal? "sources" (swp-file-handler-name a))) (first a))
+              (tail a))))
+        (l (a)
+          (if (alist-ref-q config thumbnails-directory-name) a
+            (pair (remove (l (a) (string-equal? "thumbnails" (swp-file-handler-name a))) (first a))
+              (tail a)))))))
+
   (define (swp-env-open directory config) "directory paths in env must end with a slash"
     (let*
       ( (directory (ensure-trailing-slash (realpath* directory)))
@@ -286,7 +299,8 @@
             (create-thumbnail (swp-create-thumbnail-proc (alist-ref-q config thumbnail-size)))
             (file-handlers
               (let (a (alist-ref-q config file-handlers))
-                (if (eq? swp-default-file-handlers a) a (swp-file-handlers-normalise a))))
+                (if (eq? swp-default-file-handlers a) (swp-remove-disabled-file-handlers config a)
+                  (swp-file-handlers-normalise a))))
             (config (alist-delete (q file-handlers) config)))
           (vector (q swp-env) directory
             swp-directory (string-append swp-directory "compiled/")

@@ -1,10 +1,11 @@
 static site generator
 
-sph-web-publish currently has some personalised code (custom css, sxml rewriting, extra dependencies and similar) but could be made more generic
+# license
+gpl3+
 
 # workflow
 * choose a directory and initialise it with `sph-web-publish init`
-* add your files to the directory: markdown, html, sxml, css, plcss, javascript, sescript, directories, images and anything else
+* add your files to the directory: markdown, html, sxml, css, plcss, javascript, directories, images and anything else
 * use markdown files for content pages and special inline expressions to create automatically generated link lists to content, include content and more
 * call `sph-web-publish compile`. some file types will be pre-processed. markdown becomes html, plcss becomes css, etc
 * call `sph-web-publish upload {remote}` after having added a remote to the config file
@@ -13,6 +14,7 @@ sph-web-publish currently has some personalised code (custom css, sxml rewriting
 * create site navigation and content with special expressions in markdown
 * thumbnails for images are generated
 * source files are by default included in a separate directory next to compiled files
+* composable cli to add custom markdown layout, hooks, additional markdown scm expressions, etc
 
 # example markdown
 ```
@@ -79,6 +81,7 @@ sph-web-publish compile
 
 ## markdown processing
 * when using link-files with html files that where compiled from markdown, title and description are read from the markdown file. title is read only from the first line when it starts with a level one heading. description is only read from the second line when it follows a title. when the html file is not compiled from markdown, the title is read from the content of the title tag if it exists
+* the resulting html5 document structure will be like the following sxml: `((section heading (div subsection/content ...)) ...)`
 * scheme expressions are only parsed when the `%scm ` prefix appears right at the beginning of a markdown code block. it does not matter which kind of code block - inline or fenced
 * note that multiple four spaces indented code blocks that follow another with only whitespace inbetween get joined by the markdown parser as if they were one code block
 * multiple scheme expressions can occur in one code block as long as all expressions begin with `%scm ` as the first characters of a code block line
@@ -104,27 +107,127 @@ gets the first line of a description as for library-documentation
 # upload
 uses rsync which by default uses ssh
 
-# configuration
+# customisation
+## by configuration file
 edit `{site-directory}/.swp/config`
 
-example configuration file content with all options
+example configuration file content with all possible options
 ```
-use-hardlinks #t
 sources-directory-name "sources"
 thumbnails-directory-name "thumbnails"
+use-hardlinks #t
 thumbnail-size 100
-remotes
-( default "hostname:/tmp/swp-test"
-  local "/tmp/swp-test")
 ```
 
-the format is scheme, as if the content was specified in a quasiquoted list. each pair of expressions is key and value
+the format is scheme expressions for key and value alternatingly, with indent of two spaces per step for nesting
 
-# current limitations
-* because of personalisation, the code currently additionally depends on [sescript](https://github.com/sph-mn/sescript)
-* the markdown html layout, the enclosing html, is currently not configurable and defined in `modules/sph/web/publish/shtml.scm`
-* source file handlers are currently not configurable and defined in `exe/sph-web-publish`
-* atom feed generation is not yet implemented
+* sources-directory-name: by default a handler is active which copies the sources of compiled files into a directory next to the compiled file. for example t.md would become t.html and sources/t.md. if this option is set to a string then it is the name of the directory, if it is false then the source file copying is disabled
+* thumbnails-directory-name: similar to source files, thumbnails are saved in a directory next to image files. if false, thumbnail creation is disabled
+* use-hardlinks: if true then hardlinks are used to build the temporary upload directory, otherwise source files are eventually fully copied
+* thumbnail-size: size of the longest side in pixels
+
+## by cli composition
+a sph-web-publish command line interface with further customised configuration can be created
+
+example
+```
+(import (ice-9 sandbox) (sph alist) (sph web publish) (sph web publish shtml))
+
+(define sph-info-md-scm-env
+  (make-sandbox-module
+    (append core-bindings string-bindings
+      symbol-bindings list-bindings
+      number-bindings
+      (list-q
+        ( (sph web publish markdown scm-env) library-short-description library-documentation
+          link-files include-files)
+        ( (sph-info markdown-scm-env) sph-info-audio-playlist sph-info-software-list
+          sph-info-test-io sph-info-software-list-grouped)))))
+
+(define (sph-info-shtml-layout a . b)
+  "extend shtml-layout from (sph web publish shtml)"
+  (apply shtml-layout a #:css (list "/css/sph.css") b))
+
+(define sph-info-swp-cli
+  (swp-cli-new
+    (list
+      (cons (quote shtml-layout) sph-info-shtml-layout)
+      (cons (quote md-scm-env) sph-info-md-scm-env))))
+```
+
+the cli can then be used in a file that when executed will parse the arguments it was called with accordingly
+```
+#!/usr/bin/guile
+!#
+
+(sph-info-swp-cli)
+```
+
+all options that are possible in the configuration file plus the following can be set in an association list passed to `swp-cli-new`
+```
+(list
+  (cons (quote md-scm-env) (swp-md-scm-env-new))
+  (cons (quote top-bar-links) (list (list "/" "start") (list "/feed.xml" "feed")))
+  (cons (quote shtml-layout) shtml-layout)
+  (cons (quote file-handlers) swp-default-file-handlers)
+  (cons
+    (quote hooks)
+    (list
+      (pair (quote before-upload) null)
+      (pair (quote before-compile) null)
+      (pair (quote after-compile) (list swp-atom-feed-task)))))
+```
+
+* md-scm-env: a module whose exports are available in %scm expressions in markdown
+* top-bar-links: the default layout creates a small navigation bar at the top. false to disable
+* shtml-layout: a procedure that creates the sxml around the compiled markdown content. it should support the signature shown below
+* file-handlers: a list of file handlers as described below
+* hooks: lists of procedure with the signature `swp-env -> boolean` that are called at certain times. if their result is false then processing is aborted
+
+if an option is unset then the default will be used
+
+### markdown layout
+```
+(define*
+  (shtml-layout content #:key (title "") (css null) (js null) head body-class top bottom links mtime)
+    content)
+```
+
+```
+shtml-layout ::
+  content
+  #:title string
+  #:css (string ...)
+  #:js (string ...)
+  #:head false/sxml
+  #:body-class false/string
+  #:top false/sxml
+  #:bottom false/sxml
+  #:links false:((string:target string:title) ...)
+  #:mtime false/integer
+```
+
+### file-handlers
+file handlers is a list of lists, one list for each pass. one pass is the processing of all source files. there can be up to three passes, which can be used for handlers that need all files from previous passes to be compiled for example, like for the markdown handler and file linklists
+
+file-handlers: ((file-handler ...):pass ...)
+
+a file-handler is a vector best created with `swp-file-handler-new :: name match last path-f f -> vector`.
+for example, here the default handler for sxml
+```
+(swp-file-handler-new "sxml" ".sxml" #t
+  (lambda (env target-path)
+    (string-append (string-drop-suffix ".sxml" target-path) ".xml"))
+  (lambda (env path target-path)
+    (let ((data (file->datums path)))
+      (call-with-output-file target-path (lambda (port) (sxml->xml data port))))))
+```
+
+* name: a custom string
+* match: a string to match filename extensions, a list of strings to match multiple filename extensions, true to match all files or a procedure `string:path -> boolean`
+* last: true if no more handlers of the current pass should be used, false if more handlers should possibly match
+* path-f: a procedure for generating the full path a handler will write to. `swp-env string:relative-path -> false/string:target-path`
+* f: a file handler procedure `swp-env source-path target-path -> boolean`. all paths are full paths. if result is false, all processing is aborted
 
 # internals
 * a directory named `.swp` is added to site directories on initialisation. it contains a config file that can be edited, and eventually compiled data
@@ -132,14 +235,12 @@ the format is scheme, as if the content was specified in a quasiquoted list. eac
 * by default, files that are not processed are linked to the target directory
 * the program stops with an error message if multiple handlers would create a target file with the same path (for example t.xml and t.sxml would otherwise both become t.xml in the target directory)
 * files can be processed via a list of handler procedures. a source path can match multiple handlers until one matching handler has the last flag set. there can be catch-all handlers
-* source file handlers are matched by file name suffix
 
-the following file types are currently compiled:
+the default configuration contains handlers to automatically compile files with the following suffixes
 * .md -> html
 * .shtml -> html
 * .sxml -> xml
 * .plcss -> css
-* .sjs -> js
 
-# license
-gpl3+
+# history
+sph-web-publish was created after trying to reduce the complexity of a dynamic web application that was the past basis of a personal website. it is basically the simplified successor of `sph-cms`
