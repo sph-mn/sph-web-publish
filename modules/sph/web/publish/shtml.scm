@@ -10,7 +10,9 @@
     shtml-link
     shtml-links
     shtml-object
-    shtml-section)
+    shtml-page-mtime
+    shtml-section
+    shtml-top-bar)
   (import
     (sph)
     (sph hashtable)
@@ -19,18 +21,40 @@
     (sph time string)
     (sph web publish helper)
     (sph web shtml)
-    (only (guile) string-drop))
+    (only (guile) file-exists? string-drop))
 
-  (define* (shtml-layout content #:key (title "") (css null) (js null) head body-class top bottom)
+  (define*
+    (shtml-layout content #:key (title "") (css null) (js null) head body-class top bottom links
+      mtime)
+    (let
+      ( (top-bar (and links (shtml-top-bar links)))
+        (page-mtime (and mtime (shtml-page-mtime mtime))))
+      (qq
+        (html
+          (head (title (unquote title)) (unquote-splicing (map shtml-include-css css))
+            (meta (@ (name "viewport") (content "width=device-width,initial-scale=1")))
+            (unquote head))
+          (body (unquote (if body-class (qq (@ (class (unquote body-class)))) null))
+            (unquote
+              (if (or top-bar top)
+                (qq (div (@ (class top)) (unquote (or top-bar "")) (unquote (or top "")))) null))
+            (unquote
+              (if (or mtime content)
+                (qq (div (@ (class "middle")) (unquote (or page-mtime "")) (unquote (or content ""))))
+                null))
+            (unquote (if bottom (qq (div (@ (class bottom)) (unquote bottom))) null))
+            (unquote-splicing (map shtml-include-javascript js)))))))
+
+  (define (shtml-page-mtime mtime) "integer:utc-seconds -> sxml"
     (qq
-      (html
-        (head (title (unquote title)) (unquote-splicing (map shtml-include-css css))
-          (meta (@ (name "viewport") (content "width=device-width,initial-scale=1"))) (unquote head))
-        (body (unquote (if body-class (qq (@ (class (unquote body-class)))) null))
-          (unquote (if top (qq (div (@ (class top)) (unquote top))) null))
-          (unquote (if content (qq (div (@ (class middle)) (unquote content))) null))
-          (unquote (if bottom (qq (div (@ (class bottom)) (unquote bottom))) null))
-          (unquote-splicing (map shtml-include-javascript js))))))
+      (div (@ (class mtime) (title "last modification time of the current page"))
+        (unquote (utc->ymd (s->ns mtime))))))
+
+  (define* (shtml-top-bar link-data)
+    "((name path) ...) -> shtml
+     create a top navigation bar with link to index.html and feed.xml if the files exist"
+    (let (links (interleave (map-apply shtml-link link-data) ", "))
+      (if (null? links) null (pair (q nav) links))))
 
   (define shtml-lines
     (let*
@@ -72,7 +96,8 @@
     (if (< 1 (length a)) (shtml-lines a) a))
 
   (define (shtml-link target title)
-    (shtml-hyperlink target title (if (swp-url-external? target) (q ((class "external"))) null)))
+    (shtml-hyperlink target title
+      (if (swp-url-external? target) (q ((class "external") (target "_blank"))) null)))
 
   (define (shtml-links link-data collapsed) "link-data: (name url description)"
     (if (null? link-data) null
@@ -103,16 +128,4 @@
 
   (define (shtml-csv data) "(vector ...) -> sxml" (shtml-list->table (map vector->list data)))
   (define (shtml-plaintext a) (shtml-text->sxml a))
-  (define (shtml-preformatted a) (list (q pre) a))
-
-  (define* (shtml-navigation link-data) "((name . string:url) ...) -> sxml"
-    (if (null? link-data) null
-      (let*
-        ( (links (map (l (a) (shtml-link (tail a) (first a))) link-data))
-          (links (interleave links ", ")))
-        (qq (nav (@ (class "main")) (unquote-splicing links))))))
-
-  (define (shtml-page-mtime mtime) "integer -> sxml"
-    (qq
-      (div (@ (class mtime) (title "last modification time of the current page"))
-        (unquote (utc->ymd (s->ns mtime)))))))
+  (define (shtml-preformatted a) (list (q pre) a)))

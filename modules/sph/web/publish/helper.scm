@@ -3,7 +3,7 @@
     quote-triple-second
     shtml-heading-tag->number
     shtml-heading?
-    swp-atom-feed-from-files
+    swp-atom-feed
     swp-config-read
     swp-create-thumbnail-proc
     swp-csv->list
@@ -49,26 +49,31 @@
   (define (shtml-heading-tag->number a) (string->number (string-drop (symbol->string a) 1)))
   (define (swp-config-read path) (list->alist (file->datums path)))
 
-  (define* (swp-atom-feed-from-files paths port #:key title rights)
+  (define* (swp-atom-feed directory port #:key (title "feed") rights)
     (let*
-      ( (mtimes-and-paths (map (compose stat:mtime stat) paths))
+      ( (mtimes-and-paths
+          (list-sort-with-accessor > first
+            (take* 10
+              (swp-file-system-fold directory null
+                null (l (path stat result) (pair (pair (stat:mtime stat) path) result))))))
         (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths))))
         (sxml
-          (atom-feed title title
-            most-recent-update #:rights
-            rights null
+          (apply atom-feed title
+            title most-recent-update
+            #:rights rights
             (map
-              (l (a) a
-                #;(atom-entry id title
-                  updated #:key
-                  authors categories content contributors link published rights source summary))
+              (l (a)
+                (let* ((path (tail a)) (name (basename path)))
+                  (atom-entry name name (first a) #:link (string-drop-prefix directory path))))
               mtimes-and-paths))))
       (display "<?xml version=\"1.0\"?>" port) (sxml->xml sxml port)))
 
-  (define (swp-file-system-fold file-name ignore-path init f) "procedure string:path -> boolean"
+  (define (swp-file-system-fold file-name ignored-paths init f) "procedure string:path -> boolean"
     (let
       ( (leaf (l (path stat result) (and result (f path stat result))))
-        (enter? (l (path stat result) (and result (not (string-prefix? ignore-path path)))))
+        (enter?
+          (l (path stat result)
+            (and result (every (l (a) (not (string-prefix? a path))) ignored-paths))))
         (ignore (l (path stat result) result))
         (error
           (l (path stat errno result)

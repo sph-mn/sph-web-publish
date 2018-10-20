@@ -1,5 +1,6 @@
 (library (sph web publish)
   (export
+    swp-atom-feed-task
     swp-cli-new
     swp-default-cli
     swp-default-config
@@ -149,22 +150,33 @@
               (shtml
                 (swp-md->shtml (alist-ref-q config md-scm-env) path
                   (swp-env-swp-target-directory env)))
-              (title (swp-md-get-title path))
+              (title (swp-md-get-title path)) (links (alist-ref-q config top-bar-links))
+              (mtime (stat:mtime (stat path)))
               (shtml
                 (layout shtml #:title
                   (or (and title (first title))
-                    (string-drop-suffix-if-exists ".html" (basename path))))))
+                    (string-drop-suffix-if-exists ".html" (basename path)))
+                  #:links links #:mtime mtime)))
             (call-with-output-file target-path
               (l (port) (display "<!doctype html>" port) (sxml->xml shtml port))))))))
 
+  (define (swp-atom-feed-task env)
+    (let (target-dir (swp-env-swp-target-directory env))
+      (call-with-output-file (string-append target-dir "feed.xml")
+        (l (port) (swp-atom-feed target-dir port #:title "feed")))))
+
   (define-as swp-default-config alist-q
     md-scm-env (swp-md-scm-env-new)
+    top-bar-links (list (list "/" "start") (list "/feed.xml" "feed"))
     shtml-layout shtml-layout
     file-handlers swp-default-file-handlers
-    hooks (alist-q before-upload #f)
+    hooks (alist-q before-upload null before-compile null after-compile (list swp-atom-feed-task))
     sources-directory-name "sources"
     thumbnails-directory-name "thumbnails"
     use-hardlinks #t thumbnail-size 100 feed-rights "creative commons by-nc")
+
+  (define (call-hook env name)
+    (every (l (a) (a env)) (or (alists-ref (swp-env-config env) (q hooks) name) null)))
 
   (define (swp-compile env)
     (and-let*
@@ -190,7 +202,7 @@
               handlers)))
         (paths-and-handlers
           (swp-file-system-fold (remove-trailing-slash source-dir)
-            (remove-trailing-slash (swp-env-swp-directory env)) null
+            (list (remove-trailing-slash (swp-env-swp-directory env))) null
             (l (path stat-info result)
               (or
                 (and-let*
@@ -214,7 +226,7 @@
             (if (null? target-paths-duplicates) paths-and-handlers
               (raise (list (q conflicting-target-paths) (string-join target-paths-duplicates ", ")))))))
       ; paths-and-handlers: ((handler ...):phase ...)
-      (and (let (a (alists-ref-q (swp-env-config env) hooks before-compile)) (if a (a env) #t))
+      (and (call-hook env (q before-compile))
         (every
           (l (a)
             (every
@@ -231,7 +243,8 @@
                             ((swp-file-handler-f handler) env path target-path))))))
                   a))
               a))
-          paths-and-handlers))))
+          paths-and-handlers)
+        (call-hook env (q after-compile)))))
 
   (define (swp-upload env remotes)
     (let*
@@ -243,10 +256,10 @@
               (or (assoc remotes-config name)
                 (raise (list (q remote-config-not-found) (q name) name))))
             remotes))
-        (source (swp-env-swp-target-directory env))
-        (hook-before-upload (alists-ref-q config hooks before-upload)))
-      (and (hook-before-upload env configs)
-        (every (l (a) (execute "rsync" "--recursive" "--progress" source (tail a))) configs))))
+        (source (swp-env-swp-target-directory env)))
+      (and (call-hook env (q before-upload))
+        (every (l (a) (execute "rsync" "--recursive" "--progress" source (tail a))) configs)
+        (call-hook env (q after-upload)))))
 
   (define (swp-clean env)
     (let (dir (swp-env-swp-target-directory env))
@@ -300,7 +313,9 @@
       "sph-web-publish management utility. static site generator. license gpl3+. http://sph.mn"
       #:options (list-q ((command argument ...)))
       #:command-options (list-q (directory #:value-required? #t))
-      #:command-handler (swp-cli-command-handler config)
+      #:command-handler
+      (swp-cli-command-handler
+        (if (eq? swp-default-config config) config (alist-merge swp-default-config config)))
       #:commands
       (list-qq (("clean") #:description "remove compiled files")
         (("compile") #:description "update all files under data/")

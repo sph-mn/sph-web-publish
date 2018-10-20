@@ -63,6 +63,16 @@
       (wrap-section-around-headings
         (to-prefix-tree-with-tags (to-denoted-tree (combine-what-follows-headings a))))))
 
+  (define (md-shtml-external-links a)
+    "shtml -> shtml
+     open external links in a new tab and set class \"external\""
+    (tree-map-lists
+      (l (a)
+        (match a
+          (((quote a) ((quote @) ((quote href) href) _ ...) content ...) (shtml-link href content))
+          (else a)))
+      a))
+
   (define (md-shtml-scm-eval env a directory)
     (let
       ( (scm-prefix? (l (a) (and string? (string-prefix? "%scm " a))))
@@ -104,4 +114,6 @@
 
   (define (swp-md->shtml env path directory)
     (md-shtml-scm-eval env
-      (md-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)) directory)))
+      (md-shtml-external-links
+        (md-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)))
+      directory)))
