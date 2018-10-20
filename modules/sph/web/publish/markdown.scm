@@ -19,7 +19,7 @@
     (only (srfi srfi-1) find-tail take))
 
   (define sph-web-publish-markdown-description
-    "support for itml expressions in guile commonmark sxml")
+    "support for inline scheme expressions in guile commonmark sxml")
 
   (define (swp-md-scm-env-new)
     (make-sandbox-module
@@ -31,7 +31,7 @@
             link-files include-files)))))
 
   (define (md-shtml-adjust-heading-structure a)
-    "convert a html structure (heading other ... heading other ...) to
+    "convert an shtml structure (heading other ... heading other ...) to
      ((section h1 (div other ... (section h2 (div other ...)))) (section h1 other ...))"
     (let*
       ( (combine-what-follows-headings

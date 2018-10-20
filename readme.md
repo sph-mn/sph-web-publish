@@ -14,7 +14,7 @@ gpl3+
 * manage website content in a directory and upload it to a server
 * create site navigation and content with special expressions in markdown
 * composable cli to add a custom markdown layout, hooks, markdown inline scm expressions and more
-* default handlers for thumbnails and including sources in a separate directory next to compiled files
+* default handlers for thumbnails, including sources in a separate directory next to compiled files and an atom feed for the most recently changed files
 
 # example markdown
 ```
@@ -53,7 +53,9 @@ commands
 * [guile](https://www.gnu.org/software/guile/)
 * [guile-commonmark](https://github.com/OrangeShark/guile-commonmark)
 * [sph-lib](https://github.com/sph-mn/sph-lib)
-* rsync (for upload)
+* optional
+  * rsync (for upload)
+  * graphicsmagick (for thumbnails)
 
 # installation
 * copy or symlink `modules/*` into a directory in guiles load path. for example `cp -rt /usr/share/guile/site modules/*`

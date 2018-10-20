@@ -170,11 +170,8 @@
     shtml-layout shtml-layout
     file-handlers swp-default-file-handlers
     hooks (alist-q before-upload null before-compile null after-compile (list swp-atom-feed-task))
-    sources-directory-name #f
-    ;"sources"
-    thumbnails-directory-name #f
-    ;"thumbnails"
-    use-hardlinks #t thumbnail-size 100)
+    sources-directory-name "sources"
+    thumbnails-directory-name "thumbnails" use-hardlinks #t thumbnail-size 100)
 
   (define (call-hook env name)
     (every (l (a) (a env)) (or (alists-ref (swp-env-config env) (q hooks) name) null)))
@@ -320,8 +317,8 @@
 
   (define (swp-cli-new config)
     "list -> procedure:cli
-     return a procedure that when called parses command line arguments and executes swp commands,
-     possibly customised by config"
+     return a procedure that when called parses command line arguments and
+     executes swp commands using config"
     (cli-create #:null-arguments (list "--help")
       #:about
       "sph-web-publish management utility. static site generator. license gpl3+. http://sph.mn"
