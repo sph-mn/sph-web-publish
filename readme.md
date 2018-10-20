@@ -11,20 +11,17 @@ gpl3+
 * call `sph-web-publish upload {remote}` after having added a remote to the config file
 
 # features
+* manage website content in a directory and upload it to a server
 * create site navigation and content with special expressions in markdown
-* thumbnails for images are generated
-* source files are by default included in a separate directory next to compiled files
-* composable cli to add custom markdown layout, hooks, additional markdown scm expressions, etc
+* composable cli to add a custom markdown layout, hooks, markdown inline scm expressions and more
+* default handlers for thumbnails and including sources in a separate directory next to compiled files
 
 # example markdown
 ```
 # test markdown source
 
     %scm + 1 2 3
-    %scm table
-      ("http://example.com" "example.com" "this is a description")
-      ("http://example.com" "example.com" "this is a description")
-      ("http://example.com" "example.com" "this is a description")
+    %scm link-files "test.html" "guides/*html"
 
 [link](http://sph.mn)
 
@@ -40,9 +37,10 @@ parameters
   options ... command argument ...
 options
   --about | -a
-  --directory=value
   --help | -h
   --interface
+options shared by all commands
+  --directory=value
 commands
   clean
   compile
@@ -93,6 +91,11 @@ besides `core-bindings`, `string-bindings`, `symbol-bindings`, `list-bindings`, 
 ### link-files :: paths ...
 create a list of links to compiled files. file globbing can be used with `*` and `**` as for `filesystem-glob` of sph-lib `(sph filesystem)`
 
+* `*` matches zero or more of any character in a file name.
+* `?` matches one of any character in a file name.
+* `**` skips any sub directories to match the rest of the path. at the end of a path it is the same as `**/.*` including `.*`
+* `**n` where `n` is an integer. like `**` but skips directories at most n subdirectories deep.
+
 ### include-files :: paths ...
 like link-files but includes files via an html object tag
 
@@ -117,6 +120,9 @@ sources-directory-name "sources"
 thumbnails-directory-name "thumbnails"
 use-hardlinks #t
 thumbnail-size 100
+remotes
+  default "sph-server:/tmp/swp-test"
+  local "/tmp/swp-test"
 ```
 
 the format is scheme expressions for key and value alternatingly, with indent of two spaces per step for nesting
@@ -125,6 +131,7 @@ the format is scheme expressions for key and value alternatingly, with indent of
 * thumbnails-directory-name: similar to source files, thumbnails are saved in a directory next to image files. if false, thumbnail creation is disabled
 * use-hardlinks: if true then hardlinks are used to build the temporary upload directory, otherwise source files are eventually fully copied
 * thumbnail-size: size of the longest side in pixels
+* remotes: a list of remote name and target path associations
 
 ## by cli composition
 a sph-web-publish command line interface with further customised configuration can be created
