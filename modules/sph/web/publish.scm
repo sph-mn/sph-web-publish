@@ -247,11 +247,11 @@
   (define (swp-upload env remotes)
     (let*
       ( (config (swp-env-config env)) (remotes (map string->symbol remotes))
-        (remotes-config (alist-ref-q config (q remotes) null))
+        (remotes-config (alist-ref-q config remotes null))
         (configs
           (map
             (l (name)
-              (or (assoc remotes-config name)
+              (or (assoc name remotes-config)
                 (raise (list (q remote-config-not-found) (q name) name))))
             remotes))
         (source (swp-env-swp-target-directory env)))

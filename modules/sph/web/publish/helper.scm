@@ -18,6 +18,7 @@
     (ice-9 regex)
     (sph)
     (sph alist)
+    (sph lang config)
     (sph lang scheme)
     (sph list)
     (sph other)
@@ -47,13 +48,13 @@
     (and (list? a) (not (null? a)) (containsq? (list-q h1 h2 h3 h4 h5 h6) (first a))))
 
   (define (shtml-heading-tag->number a) (string->number (string-drop (symbol->string a) 1)))
-  (define (swp-config-read path) (list->alist (file->datums path)))
+  (define (swp-config-read path) (config-read-file path))
 
   (define* (swp-atom-feed directory port #:key (title "feed") rights)
     (let*
       ( (mtimes-and-paths
-          (list-sort-with-accessor > first
-            (take* 10
+          (take* 10
+            (list-sort-with-accessor > first
               (swp-file-system-fold directory null
                 null (l (path stat result) (pair (pair (stat:mtime stat) path) result))))))
         (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths))))
