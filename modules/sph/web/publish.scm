@@ -234,7 +234,7 @@
                     (let (exists (and target-path (file-exists? target-path)))
                       (or
                         (and exists (>= (stat:mtime (stat target-path)) (stat:mtime (stat path))))
-                        (begin (if exists (delete-file target-path))
+                        (begin (display-line target-path) (if exists (delete-file target-path))
                           (and
                             (or (not target-path)
                               (ensure-directory-structure (dirname target-path)))

@@ -24,10 +24,6 @@ gpl3+
     %scm link-files "test.html" "guides/*html"
 
 [link](http://sph.mn)
-
-# module
-
-    %scm library-documentation (sph vector)
 ```
 
 # command line program
@@ -101,14 +97,6 @@ create a list of links to compiled files. file globbing can be used with `*` and
 ### include-files :: paths ...
 like link-files but includes files via an html object tag
 
-### library-documentation :: (module name)
-list formatted binding names and docstrings of the specified library.
-a description is displayed if the library exports a variable named like the parts of the library name joined with `description` at the end, for example `module-name-description`.
-if docstrings start with a type signature, they signature is parsed and displayed with formatting, for example `string boolean -> any`
-
-### library-short-description
-gets the first line of a description as for library-documentation
-
 # upload
 uses rsync which by default uses ssh
 
@@ -148,8 +136,7 @@ example
       symbol-bindings list-bindings
       number-bindings
       (quote
-        ( ( (sph web publish markdown scm-env) library-short-description library-documentation
-            link-files include-files)
+        ( ( (sph web publish markdown scm-env) link-files include-files)
           ( (sph-info markdown-scm-env) sph-info-audio-playlist sph-info-software-list
             sph-info-test-io sph-info-software-list-grouped))))))
 

@@ -25,10 +25,7 @@
     (make-sandbox-module
       (append core-bindings string-bindings
         symbol-bindings list-bindings
-        number-bindings
-        (list-q
-          ( (sph web publish markdown scm-env) library-short-description library-documentation
-            link-files include-files)))))
+        number-bindings (list-q ((sph web publish markdown scm-env) link-files include-files)))))
 
   (define (md-shtml-adjust-heading-structure a)
     "convert an shtml structure (heading other ... heading other ...) to
