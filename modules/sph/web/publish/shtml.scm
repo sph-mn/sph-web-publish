@@ -40,7 +40,8 @@
                 (qq (div (@ (class top)) (unquote (or top-bar "")) (unquote (or top "")))) null))
             (unquote
               (if (or mtime content)
-                (qq (div (@ (class "middle")) (unquote (or page-mtime "")) (unquote (or content ""))))
+                (qq
+                  (div (@ (class "middle")) (unquote (or page-mtime "")) (unquote (or content ""))))
                 null))
             (unquote (if bottom (qq (div (@ (class bottom)) (unquote bottom))) null))
             (unquote-splicing (map shtml-include-javascript js)))))))

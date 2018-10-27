@@ -43,12 +43,15 @@
               (let*
                 ( (relative-path (string-drop-prefix directory a))
                   (title (link-files-get-title directory relative-path a)) (description (tail title))
-                  (title (first title)))
-                (list relative-path (or title relative-path) description))))
+                  (title (first title)) (web-path (string-append "/" relative-path)))
+                (list (or title (basename web-path)) web-path description))))
           paths)
         #f)))
 
   (define (include-files directory . paths) "accepts file paths like link-files"
     (let (paths (append-map (l (a) (filesystem-glob (string-append directory a))) paths))
       (filter-map
-        (l (a) (and (not (directory? a)) (shtml-include (string-drop-prefix directory a)))) paths))))
+        (l (a)
+          (and (not (directory? a))
+            (shtml-include (string-append "/" (string-drop-prefix directory a)))))
+        paths))))
