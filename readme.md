@@ -177,14 +177,14 @@ all options that are possible in the configuration file plus the following can b
 
 * md-scm-env: a module whose exports will be available in %scm expressions in markdown
 * top-bar-links: the default layout creates a small navigation bar at the top to get back to the start page. false to disable
-* shtml-layout: a procedure that creates the sxml around the compiled markdown content
+* shtml-layout: a procedure that creates the sxml around compiled markdown content
 * file-handlers: a list of file handlers as described below
-* hooks: lists of procedure with the signature `swp-env -> boolean` that are called at certain times. if their result is false then processing is aborted
+* hooks: lists of procedures with the signature `swp-env -> boolean` that are called at certain times. if their result is false then processing is aborted
 
 for unset top-level options the default will be used
 
 ### file-handlers
-file handlers is a list of lists, one list for each pass. each pass processes all source files. there can be up to three passes which can be used for example for handlers that need all files from previous passes to be already compiled, like for the markdown handler and file linklists
+file handlers is a list of lists, one list for each pass. each pass processes all source files. there can be up to three passes which can be used for example for handlers that need all files to be processed by handlers from previous passes, like the default markdown handler to generate file linklists
 
 file-handlers: ((file-handler ...):pass ...)
 
