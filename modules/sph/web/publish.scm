@@ -171,7 +171,8 @@
     file-handlers swp-default-file-handlers
     hooks (alist-q before-upload null before-compile null after-compile (list swp-atom-feed-task))
     sources-directory-name "sources"
-    thumbnails-directory-name "thumbnails" use-hardlinks #t thumbnail-size 100)
+    thumbnails-directory-name "thumbnails"
+    use-hardlinks #t thumbnail-size 100 rsync-arguments (list "--progress"))
 
   (define (call-hook env name)
     (every (l (a) (a env)) (or (alists-ref (swp-env-config env) (q hooks) name) null)))
@@ -246,8 +247,8 @@
 
   (define (swp-upload env remotes)
     (let*
-      ( (config (swp-env-config env)) (remotes (map string->symbol remotes))
-        (remotes-config (alist-ref-q config remotes null))
+      ( (config (swp-env-config env)) (rsync-arguments (alist-ref-q config rsync-arguments null))
+        (remotes (map string->symbol remotes)) (remotes-config (alist-ref-q config remotes null))
         (configs
           (map
             (l (name)
@@ -256,7 +257,10 @@
             remotes))
         (source (swp-env-swp-target-directory env)))
       (and (call-hook env (q before-upload))
-        (every (l (a) (execute "rsync" "--recursive" "--progress" source (tail a))) configs)
+        (every
+          (l (a)
+            (apply execute "rsync" (append rsync-arguments (list "--recursive" source (tail a)))))
+          configs)
         (call-hook env (q after-upload)))))
 
   (define (swp-clean env)
@@ -333,6 +337,6 @@
         (("compile-and-upload") ((remote ...)) #:description "compile and on success upload")
         ( ("init") #:description
           "initialise the current directory for sph-web-publish. creates a .swp directory")
-        (("upload") ((remote ...)) #:description "update files on the configured server"))))
+        (("upload") ((remote ...)) #:description "send files to the configured server"))))
 
   (define swp-default-cli (swp-cli-new swp-default-config)))

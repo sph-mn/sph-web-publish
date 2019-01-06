@@ -95,7 +95,7 @@
             (else (list #f #t))))
         identity identity)))
 
-  (define nonword-regexp (make-regexp "\\W"))
+  (define nonword-regexp (make-regexp "^\\W"))
 
   (define (swp-md-get-title file)
     "sxml -> (false/string:title . string/false:description)
