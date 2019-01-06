@@ -215,7 +215,7 @@ for example
   (create-table-shtml cells))
 ```
 
-syntax is also supported. for example defined by
+syntax is also supported. for example defined like
 ```
 (define-syntax-rule (table directory cell ...)
   (create-table-shtml (quote (cell ...))))
@@ -223,7 +223,7 @@ syntax is also supported. for example defined by
 
 # internals
 * a directory named `.swp` is added to site directories on initialisation. it contains a config file that can be edited, and eventually compiled data
-* target files are not updated unless the source is newer. if the source is newer, the target path is first deleted
+* target files are not updated unless the source is newer. if the source is newer, the target path is first deleted, which is important considering the use of hardlinks
 * by default, files that are not processed are linked to the target directory
 * the program stops with an error message if multiple handlers would create a target file with the same path (for example t.xml and t.sxml would otherwise both become t.xml in the target directory)
 * files can be processed via a list of handler procedures. a source path can match multiple handlers until one matching handler has the last flag set. there can be catch-all handlers
