@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# usage: ./exe/install [path-prefix]
+
+prefix="$1"
+target="$prefix/usr/share/guile/site"
+mkdir -p "$target" &&
+cp -rt "$target" "modules/sph" "modules/csv" &&
+find "$target/sph" "$target/csv" -type d -exec chmod 755 {} \; &&
+find "$target/sph" "$target/csv" -type f -exec chmod 644 {} \;

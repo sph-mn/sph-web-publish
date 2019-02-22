@@ -8,6 +8,7 @@
     (sph)
     (sph filesystem)
     (sph io)
+    (sph list)
     (sph string)
     (sph web publish markdown)
     (sph web publish shtml))
@@ -37,15 +38,17 @@
      example: directory/**/*.html"
     (let (paths (append-map (l (a) (filesystem-glob (string-append directory a))) paths))
       (shtml-links
-        (filter-map
-          (l (a)
-            (and (not (directory? a))
-              (let*
-                ( (relative-path (string-drop-prefix directory a))
-                  (title (link-files-get-title directory relative-path a)) (description (tail title))
-                  (title (first title)) (web-path (string-append "/" relative-path)))
-                (list (or title (basename web-path)) web-path description))))
-          paths)
+        (list-sort-with-accessor string<? first
+          (filter-map
+            (l (a)
+              (and (not (directory? a))
+                (let*
+                  ( (relative-path (string-drop-prefix directory a))
+                    (title (link-files-get-title directory relative-path a))
+                    (description (tail title)) (title (first title))
+                    (web-path (string-append "/" relative-path)))
+                  (list (or title (basename web-path)) web-path description))))
+            paths))
         #f)))
 
   (define (include-files directory . paths) "accepts file paths like link-files"
