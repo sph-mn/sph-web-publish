@@ -164,12 +164,18 @@
       (call-with-output-file (string-append target-dir "feed.xml")
         (l (port) (swp-atom-feed target-dir port #:title "feed")))))
 
+  (define (swp-recent-changes-task env)
+    (let (target-dir (dirname (swp-env-swp-directory env)))
+      (call-with-output-file (string-append target-dir "/recent.md")
+        (l (port) (swp-recent-changes target-dir port)))))
+
   (define-as swp-default-config alist-q
     md-scm-env (swp-md-scm-env-new)
-    top-bar-links (list (list "/" "start") (list "/feed.xml" "feed"))
+    top-bar-links (list (list "/" "start") (list "/recent.html" "recent"))
     shtml-layout shtml-layout
     file-handlers swp-default-file-handlers
-    hooks (alist-q before-upload null before-compile null after-compile (list swp-atom-feed-task))
+    hooks
+    (alist-q before-upload null before-compile (list swp-recent-changes-task) after-compile null)
     sources-directory-name "sources"
     thumbnails-directory-name "thumbnails"
     use-hardlinks #t thumbnail-size 100 rsync-arguments (list "--progress"))

@@ -10,6 +10,7 @@
     swp-delete-file-recursively
     swp-file-handlers-normalise
     swp-file-system-fold
+    swp-recent-changes
     swp-url-external?)
   (import
     (csv csv)
@@ -68,6 +69,26 @@
                   (atom-entry name name (first a) #:link (string-drop-prefix directory path))))
               mtimes-and-paths))))
       (display "<?xml version=\"1.0\"?>" port) (sxml->xml sxml port)))
+
+  (define* (swp-recent-changes directory port #:key (title "recent") rights)
+    (let*
+      ( (mtimes-and-paths
+          (take* 10
+            (list-sort-with-accessor > first
+              (swp-file-system-fold (string-append directory "/.swp/compiled") null
+                null (l (path stat result) (pair (pair (stat:mtime stat) path) result))))))
+        (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths)))))
+      (display "# recent updates\n" port)
+      (each
+        (l (a)
+          (let* ((path (tail a)) (name (basename path)))
+            (if
+              (not
+                (or (string-equal? "recent.md" name) (string-equal? "recent.html" name)
+                  (string-contains path "/sources/")))
+              (simple-format port "* [~A](~A)\n"
+                name (string-drop-prefix (string-append directory "/.swp/compiled") path)))))
+        mtimes-and-paths)))
 
   (define (swp-file-system-fold file-name ignored-paths init f) "procedure string:path -> boolean"
     (let
