@@ -1,8 +1,5 @@
 (library (sph web publish markdown)
-  (export
-    swp-md->shtml
-    swp-md-get-title
-    swp-md-scm-env-new)
+  (export swp-md->shtml swp-md-get-title swp-md-scm-env-new)
   (import
     (commonmark)
     (guile)
@@ -60,6 +57,13 @@
       (wrap-section-around-headings
         (to-prefix-tree-with-tags (to-denoted-tree (combine-what-follows-headings a))))))
 
+  (define (md-shtml-remove-pre-code a)
+    (tree-map-lists
+      (l (a)
+        (match a (((quote pre) ((quote code) ((quote @)) content ...)) (pair (quote pre) content))
+          (((quote pre) ((quote code) content ...)) (pair (quote pre) content)) (else a)))
+      a))
+
   (define (md-shtml-external-links a)
     "shtml -> shtml
      open external links in a new tab and set class \"external\""
@@ -87,11 +91,8 @@
                 expressions)))))
       (tree-transform a
         (l (a recurse)
-          (match a (((quote pre) ((quote code) (? scm-prefix? b))) (list (scm-eval b) #f))
-            (((quote code) (? scm-prefix? b)) (list (scm-eval b) #f))
-            ( ( (quote pre) ((quote code) (? escaped-scm-prefix? content)))
-              (list (string-drop content 1) #f))
-            (((quote code) (? escaped-scm-prefix? content)) (list (string-drop content 1) #f))
+          (match a (((quote pre) (? scm-prefix? b)) (list (scm-eval b) #f))
+            (((quote pre) (? escaped-scm-prefix? content)) (list (string-drop content 1) #f))
             (else (list #f #t))))
         identity identity)))
 
@@ -112,5 +113,6 @@
   (define (swp-md->shtml env path directory)
     (md-shtml-scm-eval env
       (md-shtml-external-links
-        (md-shtml-adjust-heading-structure (call-with-input-file path commonmark->sxml)))
+        (md-shtml-adjust-heading-structure
+          (md-shtml-remove-pre-code (call-with-input-file path commonmark->sxml))))
       directory)))
