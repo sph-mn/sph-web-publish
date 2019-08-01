@@ -232,6 +232,7 @@
               (raise (list (q conflicting-target-paths) (string-join target-paths-duplicates ", ")))))))
       ; paths-and-handlers: ((handler ...):pass ...)
       (and (call-hook env (q before-compile))
+        ; runs side-effecting procedures and use "every" to check if all return true
         (every
           (l (a)
             (every
@@ -240,7 +241,8 @@
                   (l (path target-path handler)
                     (let (exists (and target-path (file-exists? target-path)))
                       (or
-                        (and exists (>= (stat:mtime (stat target-path)) (stat:mtime (stat path))))
+                        (and (not (alist-ref (swp-env-config env) (q all))) exists
+                          (>= (stat:mtime (stat target-path)) (stat:mtime (stat path))))
                         (begin (display-line target-path) (if exists (delete-file target-path))
                           (and
                             (or (not target-path)
@@ -293,7 +295,9 @@
             (pair (remove (l (a) (string-equal? "thumbnails" (swp-file-handler-name a))) (first a))
               (tail a)))))))
 
-  (define (swp-env-open directory config) "directory paths in env must end with a slash"
+  (define (swp-env-open directory config)
+    "read the configuration file and return an environment object which also contains any configuration given via cli.
+     directory paths in env must end with a slash"
     (let*
       ( (directory (ensure-trailing-slash (realpath* directory)))
         (swp-directory (string-append directory ".swp/")))
@@ -318,7 +322,7 @@
       (let*
         ( (directory (or (alist-ref-q options directory) (getcwd)))
           (remotes (or (alist-ref-q options remote) (q ("default"))))
-          (env-open (nullary (swp-env-open directory config))))
+          (env-open (nullary (swp-env-open directory (alist-merge config options)))))
         (string-case (first command) ("clean" (swp-clean (env-open)))
           ("compile" (swp-compile (env-open)))
           ("compile-and-upload" (swp-compile-and-upload (env-open) remotes))
@@ -339,7 +343,8 @@
         (if (eq? swp-default-config config) config (alist-merge swp-default-config config)))
       #:commands
       (list-qq (("clean") #:description "remove compiled files")
-        (("compile") #:description "update all files under data/")
+        ( ("compile") (all #:description "dont check for updates, compile all source files")
+          #:description "update all files under data/")
         (("compile-and-upload") ((remote ...)) #:description "compile and on success upload")
         ( ("init") #:description
           "initialise the current directory for sph-web-publish. creates a .swp directory")
