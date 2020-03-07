@@ -86,6 +86,12 @@ sph-web-publish compile
 
 besides `core-bindings`, `string-bindings`, `symbol-bindings`, `list-bindings` and `number-bindings` the following features are available
 
+the default configuration contains handlers to automatically compile files with the following suffixes
+* .md -> html
+* .shtml -> html
+* .sxml -> xml
+* .plcss -> css
+
 ### link-files :: paths ...
 create a list of links to compiled files. file globbing can be used with `*` and `**` as for `filesystem-glob` of sph-lib `(sph filesystem)`
 
@@ -227,12 +233,6 @@ syntax is also supported. for example defined like
 * by default, files that are not processed are linked to the target directory
 * the program stops with an error message if multiple handlers would create a target file with the same path (for example t.xml and t.sxml would otherwise both become t.xml in the target directory)
 * files can be processed via a list of handler procedures. a source path can match multiple handlers until one matching handler has the last flag set. there can be catch-all handlers
-
-the default configuration contains handlers to automatically compile files with the following suffixes
-* .md -> html
-* .shtml -> html
-* .sxml -> xml
-* .plcss -> css
 
 # history
 sph-web-publish was created after trying to reduce the complexity of a dynamic web application that was the basis of a personal website. it is basically the simplified successor of `sph-cms`

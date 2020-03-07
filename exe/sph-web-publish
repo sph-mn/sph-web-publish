@@ -1,5 +1,5 @@
 #!/usr/bin/guile
 !#
 
-(import (sph) (sph web publish))
+(use-modules (sph) (sph web publish))
 (swp-default-cli)
