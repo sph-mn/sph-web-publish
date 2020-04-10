@@ -95,6 +95,8 @@
             (list (string-drop content 1) #f dependencies))
           ( ( (quote pre) ((quote code) (? escaped-scm-prefix? content)))
             (list (string-drop content 1) #f dependencies))
+          ( ( (quote pre) ((quote code) body ...))
+            (list (pair (q pre) body) #f dependencies))
           (else (list #f #t dependencies))))
       (l a a) (l a a) null)))
 
