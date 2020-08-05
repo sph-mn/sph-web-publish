@@ -4,7 +4,7 @@
   (ice-9 ftw) (ice-9 regex)
   (sph) (sph alist)
   (sph lang config) (sph lang scheme)
-  (sph list) (sph other) (sph process) (sph string) (sph web atom) (sxml simple) (web uri))
+  (sph time) (sph list) (sph other) (sph process) (sph string) (sph web atom) (sxml simple) (web uri))
 
 (export quote-triple-second shtml-heading-tag->number
   shtml-heading? swp-atom-feed
@@ -29,7 +29,7 @@
     (l (file-path) (call-with-input-file file-path csv-reader))))
 
 (define (shtml-heading? a)
-  (and (list? a) (not (null? a)) (containsq? (list-q h1 h2 h3 h4 h5 h6) (first a))))
+  (and (list? a) (not (null? a)) (containsq? (q (h1 h2 h3 h4 h5 h6)) (first a))))
 
 (define (shtml-heading-tag->number a) (string->number (string-drop (symbol->string a) 1)))
 (define (swp-config-read path) (config-read-file path))
@@ -56,21 +56,26 @@
 (define* (swp-recent-changes directory port #:key (title "recent") rights)
   (let*
     ( (mtimes-and-paths
-        (take* 10
-          (list-sort-with-accessor > first
-            (swp-file-system-fold (string-append directory "/.swp/compiled") null
-              null (l (path stat result) (pair (pair (stat:mtime stat) path) result))))))
-      (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths)))))
+        (take* 20
+          (filter
+            (l (a)
+              (let (path (tail a))
+                (not
+                  (or (string-suffix? path "recent.md") (string-suffix? path "recent.html")
+                    (string-contains path "/sources/")))))
+            (list-sort-with-accessor > first
+              (swp-file-system-fold (string-append directory "/.swp/compiled") null
+                null (l (path stat result) (pair (pair (stat:mtime stat) path) result)))))))
+      (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths))))
+      (time (current-time)))
     (display "# recent updates\n" port)
     (each
       (l (a)
-        (let* ((path (tail a)) (name (basename path)))
-          (if
-            (not
-              (or (string-equal? "recent.md" name) (string-equal? "recent.html" name)
-                (string-contains path "/sources/")))
-            (simple-format port "* [~A](~A)\n"
-              name (string-drop-prefix (string-append directory "/.swp/compiled") path)))))
+        (let*
+          ( (path (tail a)) (name (basename path)) (past (truncate (/ (- time (first a)) 86400)))
+            (public-path (string-drop-prefix (string-append directory "/.swp/compiled") path)))
+          (simple-format port "* [~A](~A), ~A\n"
+            name public-path (if (= 0 past) "today" (string-append "-" (number->string past 10) "d")))))
       mtimes-and-paths)))
 
 (define (swp-file-system-fold file-name ignored-paths init f) "procedure string:path -> boolean"

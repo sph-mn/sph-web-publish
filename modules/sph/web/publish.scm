@@ -223,15 +223,18 @@
                     (or
                       (and (not (alist-ref (swp-env-config env) (q all))) exists
                         (>= (stat:mtime (stat target-path)) (stat:mtime (stat path))))
-                      (begin (display target-path) (newline)
-                        (if exists (delete-file target-path))
+                      (begin (display-line target-path) (if exists (delete-file target-path))
                         (and
                           (or (not target-path) (ensure-directory-structure (dirname target-path)))
-                          ((swp-file-handler-f handler) env path target-path))))))
+                          (let (result ((swp-file-handler-f handler) env path target-path))
+                            (fix-mtime path target-path) result))))))
                 a))
             a))
         paths-and-handlers)
       (call-hook env (q after-compile)))))
+
+(define (fix-mtime a b) "because files are recreated the target modification time is reset"
+  (let (c (stat a)) (utime b (stat:atime c) (stat:mtime c))))
 
 (define (swp-upload env remotes)
   (let*
@@ -307,27 +310,27 @@
         ("compile" (swp-compile (env-open)))
         ("compile-and-upload" (swp-compile-and-upload (env-open) remotes))
         ("init" (swp-init directory)) ("upload" (swp-upload (env-open) remotes))
-        (else (display "invalid-command\n") #f)))))
+        (else (begin (display "invalid-command\n") #f))))))
 
 (define (swp-cli-new config)
   "list -> procedure:cli
    return a procedure that when called parses command line arguments and
    executes swp commands using config"
-  (cli-create
-    #:null-arguments (list "--help")
+  (cli-create #:null-arguments (list "--help")
     #:about "sph-web-publish management utility. static site generator. license gpl3+. http://sph.mn"
-    #:options (list-q ((command argument ...)))
-    #:command-options (list-q (directory #:value-required? #t))
+    #:options (q (((command argument ...))))
+    #:command-options (q ((directory #:value-required? #t)))
     #:command-handler
     (swp-cli-command-handler
       (if (eq? swp-default-config config) config (alist-merge swp-default-config config)))
     #:commands
-    (list-qq (("clean") #:description "remove compiled files")
-      ( ("compile") (all #:description "dont check for updates, compile all source files")
-        #:description "update all files under data/")
-      (("compile-and-upload") ((remote ...)) #:description "compile and on success upload")
-      ( ("init") #:description
-        "initialise the current directory for sph-web-publish. creates a .swp directory")
-      (("upload") ((remote ...)) #:description "send files to the configured server"))))
+    (qq
+      ( ( ("clean") #:description "remove compiled files")
+        ( ("compile") (all #:description "dont check for updates, compile all source files")
+          #:description "update all files under data/")
+        (("compile-and-upload") ((remote ...)) #:description "compile and on success upload")
+        ( ("init") #:description
+          "initialise the current directory for sph-web-publish. creates a .swp directory")
+        (("upload") ((remote ...)) #:description "send files to the configured server")))))
 
 (define swp-default-cli (swp-cli-new swp-default-config))

@@ -234,6 +234,11 @@ syntax is also supported. for example defined like
 * the program stops with an error message if multiple handlers would create a target file with the same path (for example t.xml and t.sxml would otherwise both become t.xml in the target directory)
 * files can be processed via a list of handler procedures. a source path can match multiple handlers until one matching handler has the last flag set. there can be catch-all handlers
 
+# possible enhancements
+* markdown files that include files are not automatically updated when the included files change
+* document an example configuration that sets the right server permissions, sometimes not obvious with rsync
+* preserve modification times when recreating hardlinks
+
 # history
 sph-web-publish was created after trying to reduce the complexity of a dynamic web application that was the basis of a personal website. it is basically the simplified successor of `sph-cms`
 
