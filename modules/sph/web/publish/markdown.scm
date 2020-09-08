@@ -17,7 +17,7 @@
   (make-sandbox-module
     (append core-bindings string-bindings
       symbol-bindings list-bindings
-      number-bindings (list-q ((sph web publish markdown scm-env) link-files include-files)))))
+      number-bindings (q (((sph web publish markdown scm-env) link-files include-files))))))
 
 (define (md-shtml-adjust-heading-structure a)
   "convert an shtml structure (heading other ... heading other ...) to
@@ -27,6 +27,7 @@
         (l (a) (map-span (negate shtml-heading?) (l a (pair (q div) a)) a)))
       (to-denoted-tree
         (l (a)
+          "-> ((integer:nesting . string:line) ...)"
           (let loop ((a a))
             (if (null? a) a
               (match a
@@ -62,17 +63,17 @@
         (else a)))
     a))
 
-(define (md-shtml-scm-eval env a directory) "-> (((string:dependency ...) . shtml) ...)"
+(define (md-shtml-scm-eval env a directory) "-> (((string:file-path-dependency ...) . shtml) ...)"
   (let*
-    ( (scm-prefix? (l (a) (and string? (string-prefix? "%scm " a))))
-      (escaped-scm-prefix? (l (a) (and string? (string-prefix? "%%scm " a))))
+    ( (scm-prefix? (l (a) (and (string? a) (string-prefix? "%scm " a))))
+      (escaped-scm-prefix? (l (a) (and (string? a) (string-prefix? "%%scm " a))))
       (scm-eval
         (l (a)
           "multiple four space indented md code blocks come as one block, even with an empty line inbetween.
-           doesnt match indented code block with escaped prefix following indented block with prefix"
+           this doesnt match indented code blocks with escaped prefix following indented blocks with prefix"
           (let (expressions (map string->datums (string-split-regexp (string-drop a 5) "\n%scm ")))
             (map-apply
-              (l* (identifier . arguments)
+              (l (identifier . arguments)
                 (let
                   (result
                     (eval-in-sandbox (pairs identifier directory arguments) #:time-limit
@@ -82,6 +83,7 @@
                     (pair (any->list (vector-first result)) (vector-second result))
                     (pair null result))))
               expressions)))))
+    ; tree-transform* should be replaced with a simple recursive loop
     (tree-transform* a
       (l (a recurse dependencies)
         (match a

@@ -14,7 +14,7 @@ gpl3+
 * manage website content in a directory and upload it to a server
 * create site navigation and content with special expressions in markdown
 * custom markdown layout, hooks, markdown inline scm expressions and more
-* default handlers for thumbnails, copying sources of compiled files and an atom feed for most recently changed files
+* default handlers for thumbnails, copying sources of compiled files and a task to create a page with recently changed files. an atom feed task is also available
 
 # example markdown
 ```
@@ -75,9 +75,15 @@ sph-web-publish compile
 * compiled files are saved in `{site-directory}/.swp/compiled`
 * `sph-web-publish clean` deletes all the compiled files
 
+the default configuration contains handlers to automatically compile files with the following suffixes:
+* .md -> html
+* .shtml -> html
+* .sxml -> xml
+* .plcss -> css
+
 ## markdown processing
 * when using `link-files` with html files that where compiled from markdown then title and description are read from the markdown file. title is read only from the first line when it starts with a level one heading. description is only read from the second line when it follows a title. when the html file is not compiled from markdown, the title is read from the content of the title tag if it exists
-* the resulting html5 document structure will be like the following sxml: `((section heading (div subsection/content ...)) ...)`
+* the html5 document structure for markdown will be like this sxml: `((section heading (div subsection/content ...)) ...)`
 * scheme expressions are only parsed when the `%scm ` prefix appears right at the beginning of a markdown code block. it does not matter which kind of code block - inline or fenced
 * note that multiple four spaces indented code blocks that follow another with only whitespace inbetween get joined by the markdown parser as if they were one code block
 * multiple scheme expressions can occur in one code block as long as all expressions begin with `%scm ` as the first characters of a code block line
@@ -85,12 +91,6 @@ sph-web-publish compile
 * only a limited set of bindings is available and expressions are evaluated with guiles `eval-in-sandbox`
 
 besides `core-bindings`, `string-bindings`, `symbol-bindings`, `list-bindings` and `number-bindings` the following features are available
-
-the default configuration contains handlers to automatically compile files with the following suffixes
-* .md -> html
-* .shtml -> html
-* .sxml -> xml
-* .plcss -> css
 
 ### link-files :: paths ...
 create a list of links to compiled files. file globbing can be used with `*` and `**` as for `filesystem-glob` of sph-lib `(sph filesystem)`
@@ -112,6 +112,7 @@ edit `{site-directory}/.swp/config`
 
 example configuration file content with all possible options
 ```
+rsync-arguments ("--delete" "--delete-before" "--times" "--progress")
 sources-directory-name "sources"
 thumbnails-directory-name "thumbnails"
 use-hardlinks #t
@@ -121,16 +122,16 @@ remotes
   local "/tmp/swp-test"
 ```
 
-the format is scheme expressions for key and value alternatingly, with indent of two spaces per step for nesting
+the format is scheme expressions for key and value alternatingly, with indent of two spaces for nesting
 
 * sources-directory-name: by default, a handler is enabled which copies the sources of compiled files into a directory next to the compiled file. for example t.md would become t.html and sources/t.md. if this option is set to a string then it is the name of the directory, if it is false then the source file copying handler is disabled
 * thumbnails-directory-name: similar to source files, thumbnails are saved in a directory next to image files. if false, thumbnail creation is disabled
-* use-hardlinks: if true then hardlinks are used to build the temporary upload directory, otherwise source files are eventually fully copied
+* use-hardlinks: if true then hardlinks are used to build the temporary upload directory, otherwise source files might be fully copied
 * thumbnail-size: size of the longest side in pixels
 * remotes: a list of remote name and target path associations
 
 ## by cli composition
-a sph-web-publish command line interface with further customised configuration can be created
+a sph-web-publish command line interface with further customised configuration can be created. for example, to use custom markdown scheme bindings.
 
 example
 ```
@@ -176,9 +177,9 @@ all options that are possible in the configuration file plus the following can b
   (cons
     (quote hooks)
     (list
-      (pair (quote before-upload) null)
-      (pair (quote before-compile) null)
-      (pair (quote after-compile) (list swp-atom-feed-task)))))
+      (cons (quote before-upload) null)
+      (cons (quote before-compile) null)
+      (cons (quote after-compile) (list swp-atom-feed-task)))))
 ```
 
 * md-scm-env: a module whose exports will be available in %scm expressions in markdown
@@ -190,7 +191,7 @@ all options that are possible in the configuration file plus the following can b
 for unset top-level options the default will be used
 
 ### file-handlers
-file handlers is a list of lists, one list for each pass. each pass processes all source files. there can be up to three passes which can be used for example for handlers that need all files to be processed by handlers from previous passes, like the default markdown handler to generate file linklists
+file handlers is a list of lists, one list for each pass. each pass processes all source files. there can be up to three passes which can be used for handlers that need all files to be processed by handlers from previous passes, like the default markdown handler to generate file linklists
 
 file-handlers: ((file-handler ...):pass ...)
 
@@ -199,7 +200,7 @@ a file-handler is a vector best created with `swp-file-handler-new :: name match
 * name: a custom string
 * match: a string to match filename extensions, a list of strings to match multiple filename extensions, true to match all files or a procedure `string:path -> boolean`
 * last: true if no more handlers of the current pass should be used, false if more handlers should possibly match
-* path-f: a procedure for generating the full path a handler will write to. used to check for conflicts and will be passed to the handler function. `swp-env string:relative-path -> false/string:target-path`
+* path-f: a procedure that returns the full path a handler will write to. used to check for conflicts and will be passed to the handler function. `swp-env string:relative-path -> false/string:target-path`
 * f: a file handler procedure `swp-env source-path target-path -> boolean`. all paths are full paths. if result is false, all processing is aborted
 
 for example, here the default handler for sxml
