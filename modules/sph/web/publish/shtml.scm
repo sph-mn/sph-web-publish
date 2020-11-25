@@ -45,7 +45,7 @@
     ( (inline-html-tags
         (ht-from-list
           (map (l (a) (pair a a))
-            (list-q span a object img script select button input label select textarea))))
+            (q (span a object img script select button input label select textarea)))))
       (inline-html-tag? (l (a) (ht-ref inline-html-tags a))) (line-wrap (l (a) (list (q p) a)))
       (line-list (l (a) (pair (q p) a)))
       (splice-non-tag-lists (l (a) (splice (l (a) (or (null? a) (not (symbol? (first a))))) a))))
@@ -107,7 +107,7 @@
         (map (l (a) (qq (param (@ (name (unquote (first a))) (value (unquote (tail a))))))) params)))))
 
 (define (shtml-include path)
-  (qq (div (@ (class "included")) (unquote (shtml-object path (list-q (class "included")))))))
+  (qq (div (@ (class "included")) (unquote (shtml-object path (q ((class "included"))))))))
 
 (define (shtml-csv data) "(vector ...) -> sxml" (shtml-list->table (map vector->list data)))
 (define (shtml-plaintext a) (shtml-text->sxml a))
