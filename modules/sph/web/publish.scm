@@ -327,7 +327,7 @@
     (qq
       ( ( ("clean") #:description "remove compiled files")
         ( ("compile") (all #:description "dont check for updates, compile all source files")
-          #:description "update all files under data/")
+          #:description "update all files under .swp/compiled/")
         (("compile-and-upload") ((remote ...)) #:description "compile and on success upload")
         ( ("init") #:description
           "initialise the current directory for sph-web-publish. creates a .swp directory")

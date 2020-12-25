@@ -23,7 +23,7 @@ gpl3+
     %scm + 1 2 3
     %scm link-files "test.html" "guides/*html"
 
-[link](http://sph.mn)
+[link](http://example.com)
 ```
 
 # command line program
@@ -82,7 +82,7 @@ the default configuration contains handlers to automatically compile files with 
 * .plcss -> css
 
 ## markdown processing
-* when using `link-files` with html files that where compiled from markdown then title and description are read from the markdown file. title is read only from the first line when it starts with a level one heading. description is only read from the second line when it follows a title. when the html file is not compiled from markdown, the title is read from the content of the title tag if it exists
+* when using `link-files` with html files that where compiled from markdown, title and description are read from the markdown file. title is read only from the first line when it starts with a level one heading. description is only read from the second line when it follows a title. when the html file is not compiled from markdown, the title is read from the content of the title tag if it exists
 * the html5 document structure for markdown will be like this sxml: `((section heading (div subsection/content ...)) ...)`
 * scheme expressions are only parsed when the `%scm ` prefix appears right at the beginning of a markdown code block. it does not matter which kind of code block - inline or fenced
 * note that multiple four spaces indented code blocks that follow another with only whitespace inbetween get joined by the markdown parser as if they were one code block
@@ -147,10 +147,10 @@ example
           ( (sph-info markdown-scm-env) sph-info-audio-playlist sph-info-software-list
             sph-info-test-io sph-info-software-list-grouped))))))
 
-(define (sph-info-shtml-layout a . b)
-  "content #:title string #:links list #:mtime integer -> sxml
+(define (sph-info-shtml-layout content-sxml . other-arguments)
+  ":: content #:title string #:links list #:mtime integer -> sxml
    this layout function extends shtml-layout from (sph web publish shtml)"
-  (apply shtml-layout a #:css (list "/css/sph.css") b))
+  (apply shtml-layout content-sxml #:css (list "/css/sph.css") other-arguments))
 
 (define sph-info-swp-cli
   (swp-cli-new
@@ -200,7 +200,7 @@ a file-handler is a vector best created with `swp-file-handler-new :: name match
 * name: a custom string
 * match: a string to match filename extensions, a list of strings to match multiple filename extensions, true to match all files or a procedure `string:path -> boolean`
 * last: true if no more handlers of the current pass should be used, false if more handlers should possibly match
-* path-f: a procedure that returns the full path a handler will write to. used to check for conflicts and will be passed to the handler function. `swp-env string:relative-path -> false/string:target-path`
+* path-f: a procedure that returns the full path a handler will write to. used to check for conflicts and the result will be passed to the handler function. `swp-env string:source-path -> false/string:target-path`
 * f: a file handler procedure `swp-env source-path target-path -> boolean`. all paths are full paths. if result is false, all processing is aborted
 
 for example, here the default handler for sxml
@@ -214,7 +214,7 @@ for example, here the default handler for sxml
 ```
 
 ### markdown scm expressions
-procedures to be used in inline scheme expressions receive the path to the temporary compile target directory as the first argument and return sxml
+procedures to be used in inline scheme expressions receive the path to the compile target directory as the first argument and return sxml
 
 for example
 ```
@@ -229,16 +229,15 @@ syntax is also supported. for example defined like
 ```
 
 # internals
-* a directory named `.swp` is added to site directories on initialisation. it contains a config file that can be edited, and eventually compiled data
+* a directory named `.swp` is added to site directories on initialisation. it contains a config file that can be edited, and compiled data
 * target files are not updated unless the source is newer. if the source is newer, the target path is first deleted, which is important considering the use of hardlinks
 * by default, files that are not processed are linked to the target directory
 * the program stops with an error message if multiple handlers would create a target file with the same path (for example t.xml and t.sxml would otherwise both become t.xml in the target directory)
-* files can be processed via a list of handler procedures. a source path can match multiple handlers until one matching handler has the last flag set. there can be catch-all handlers
+* files can be processed with a list of handler procedures. a source path can match multiple handlers until one matching handler has the last flag set. there can be catch-all handlers
 
 # possible enhancements
 * markdown files that include files are not automatically updated when the included files change
 * document an example configuration that sets the right server permissions, sometimes not obvious with rsync
-* preserve modification times when recreating hardlinks
 
 # history
 sph-web-publish was created after trying to reduce the complexity of a dynamic web application that was the basis of a personal website. it is basically the simplified successor of `sph-cms`
