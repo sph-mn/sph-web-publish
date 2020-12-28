@@ -1,7 +1,7 @@
 (define-module (sph web publish shtml))
 
 (use-modules (sph) (sph hashtable)
-  (sph list) (sph time) (sph time string) (sph web publish helper) (sph web shtml))
+  (sph filesystem) (sph list) (sph time) (sph time string) (sph web publish helper) (sph web shtml))
 
 (re-export shtml-section shtml-hyperlink shtml-include-css shtml-include-javascript)
 
@@ -106,8 +106,15 @@
       (unquote
         (map (l (a) (qq (param (@ (name (unquote (first a))) (value (unquote (tail a))))))) params)))))
 
+(define link-extensions (list "jpg" "png"))
+
 (define (shtml-include path)
-  (qq (div (@ (class "included")) (unquote (shtml-object path (q ((class "included"))))))))
+  (let*
+    ( (content (shtml-object path (q ((class "included")))))
+      (content
+        (if (contains? link-extensions (filename-extension path))
+          (qq (a (@ (href (unquote path)) (target "_blank")) (unquote content))) content)))
+    (qq (div (@ (class "included")) (unquote content)))))
 
 (define (shtml-csv data) "(vector ...) -> sxml" (shtml-list->table (map vector->list data)))
 (define (shtml-plaintext a) (shtml-text->sxml a))

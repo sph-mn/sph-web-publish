@@ -4,7 +4,8 @@
   (ice-9 ftw) (ice-9 regex)
   (sph) (sph alist)
   (sph lang config) (sph lang scheme)
-  (sph time) (sph list) (sph other) (sph process) (sph string) (sph web atom) (sxml simple) (web uri))
+  (sph time) (sph time string)
+  (sph list) (sph other) (sph process) (sph string) (sph web atom) (sxml simple) (web uri))
 
 (export quote-triple-second shtml-heading-tag->number
   shtml-heading? swp-atom-feed
@@ -66,16 +67,14 @@
             (list-sort-with-accessor > first
               (swp-file-system-fold (string-append directory "/.swp/compiled") null
                 null (l (path stat result) (pair (pair (stat:mtime stat) path) result)))))))
-      (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths))))
-      (time (current-time)))
+      (most-recent-update (if (null? mtimes-and-paths) 0 (first (first mtimes-and-paths)))))
     (display "# recent updates\n" port)
     (each
       (l (a)
         (let*
-          ( (path (tail a)) (name (basename path)) (past (truncate (/ (- time (first a)) 86400)))
+          ( (path (tail a)) (name (basename path)) (date-string (utc->ymd (s->ns (first a))))
             (public-path (string-drop-prefix (string-append directory "/.swp/compiled") path)))
-          (simple-format port "* [~A](~A), ~A\n"
-            name public-path (if (= 0 past) "today" (string-append "-" (number->string past 10) "d")))))
+          (simple-format port "* [~A](~A), ~A\n" name public-path date-string)))
       mtimes-and-paths)))
 
 (define (swp-file-system-fold file-name ignored-paths init f) "procedure string:path -> boolean"

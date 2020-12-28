@@ -26,8 +26,7 @@
     ( (combine-what-follows-headings
         (l (a) (map-span (negate shtml-heading?) (l a (pair (q div) a)) a)))
       (to-denoted-tree
-        (l (a)
-          "-> ((integer:nesting . string:line) ...)"
+        (l (a) "-> ((integer:nesting . string:line) ...)"
           (let loop ((a a))
             (if (null? a) a
               (match a
@@ -86,6 +85,7 @@
     ; tree-transform* should be replaced with a simple recursive loop
     (tree-transform* a
       (l (a recurse dependencies)
+        "match %scm blocks and also remove the extra <code> tag inside <pre>"
         (match a
           ( ( (quote pre) ((quote code) (quote (@)) (? scm-prefix? b)))
             (let (result (scm-eval b))

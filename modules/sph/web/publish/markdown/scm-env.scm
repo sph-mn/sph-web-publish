@@ -1,8 +1,8 @@
 (define-module (sph web publish markdown scm-env))
 
-(use-modules (srfi srfi-1) (ice-9 regex) (sph)
-  (sph filesystem) (sph io)
-  (sph list) (sph string) (sph web publish markdown) (sph web publish shtml))
+(use-modules (srfi srfi-1) (ice-9 regex)
+  (sph) (sph filesystem)
+  (sph io) (sph list) (sph string) (sph web publish markdown) (sph web publish shtml))
 
 (export include-files link-files)
 

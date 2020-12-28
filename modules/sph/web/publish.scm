@@ -233,7 +233,7 @@
         paths-and-handlers)
       (call-hook env (q after-compile)))))
 
-(define (fix-mtime a b) "because files are recreated the target modification time is reset"
+(define (fix-mtime a b) "because files are recreated the target modification time gets reset"
   (let (c (stat a)) (utime b (stat:atime c) (stat:mtime c))))
 
 (define (swp-upload env remotes)
