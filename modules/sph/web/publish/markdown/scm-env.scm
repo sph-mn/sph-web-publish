@@ -45,8 +45,9 @@
 
 (define (include-files directory . paths) "accepts file paths like link-files"
   (let (paths (append-map (l (a) (filesystem-glob (string-append directory a))) paths))
-    (filter-map
-      (l (a)
-        (and (not (directory? a))
-          (shtml-include (string-append "/" (string-drop-prefix directory a)))))
-      paths)))
+    (reverse
+      (filter-map
+        (l (a)
+          (and (not (directory? a))
+            (shtml-include (string-append "/" (string-drop-prefix directory a)))))
+        paths))))
