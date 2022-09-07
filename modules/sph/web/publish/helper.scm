@@ -54,16 +54,21 @@
             mtimes-and-paths))))
     (display "<?xml version=\"1.0\"?>" port) (sxml->xml sxml port)))
 
-(define* (swp-recent-changes directory port #:key (title "recent") rights)
+(define* (swp-recent-changes directory port #:key (title "recent") (recent-excludes (list)))
   (let*
     ( (mtimes-and-paths
         (take* 20
           (filter
             (l (a)
-              (let (path (tail a))
+              (let*
+                ( (path (tail a))
+                  (relative-path
+                    (string-replace-string path (string-append directory "/.swp/compiled") "")))
                 (not
-                  (or (string-suffix? path "recent.md") (string-suffix? path "recent.html")
-                    (string-contains path "/sources/")))))
+                  (or (string-suffix? relative-path "recent.md")
+                    (string-suffix? relative-path "recent.html")
+                    (string-contains relative-path "/sources/")
+                    (any (l (a) (string-prefix? a relative-path)) recent-excludes)))))
             (list-sort-with-accessor > first
               (swp-file-system-fold (string-append directory "/.swp/compiled") null
                 null (l (path stat result) (pair (pair (stat:mtime stat) path) result)))))))

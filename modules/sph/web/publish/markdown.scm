@@ -64,13 +64,18 @@
 
 (define (md-shtml-scm-eval env a directory) "-> (((string:file-path-dependency ...) . shtml) ...)"
   (let*
-    ( (scm-prefix? (l (a) (and (string? a) (string-prefix? "%scm " a))))
-      (escaped-scm-prefix? (l (a) (and (string? a) (string-prefix? "%%scm " a))))
+    ( (scm-prefix?
+        (l (a) (and (string? a) (or (string-prefix? "%scm " a) (string-prefix? "`%scm " a)))))
+      (escaped-scm-prefix?
+        (l (a) (and (string? a) (or (string-prefix? "%%scm " a) (string-prefix? "`%%scm " a)))))
       (scm-eval
         (l (a)
           "multiple four space indented md code blocks come as one block, even with an empty line inbetween.
            this doesnt match indented code blocks with escaped prefix following indented blocks with prefix"
-          (let (expressions (map string->datums (string-split-regexp (string-drop a 5) "\n%scm ")))
+          (let
+            (expressions
+              (map string->datums
+                (string-split-regexp (string-drop (string-trim-both a #\`) 5) "\n%scm ")))
             (map-apply
               (l (identifier . arguments)
                 (let
@@ -85,12 +90,15 @@
     ; tree-transform* should be replaced with a simple recursive loop
     (tree-transform* a
       (l (a recurse dependencies)
-        "match %scm blocks and also remove the extra <code> tag inside <pre>"
+        "match %scm blocks and also remove the extra <code> tag inside <pre>" (debug-log a)
         (match a
           ( ( (quote pre) ((quote code) (quote (@)) (? scm-prefix? b)))
             (let (result (scm-eval b))
               (list (map tail result) #f (append (map first result) dependencies))))
           ( ( (quote pre) ((quote code) (? scm-prefix? b)))
+            (let (result (scm-eval b))
+              (list (map tail result) #f (append (apply append (map first result)) dependencies))))
+          ( ( (quote code) (? scm-prefix? b))
             (let (result (scm-eval b))
               (list (map tail result) #f (append (apply append (map first result)) dependencies))))
           ( ( (quote pre) ((quote code) (quote (@)) (? escaped-scm-prefix? content)))

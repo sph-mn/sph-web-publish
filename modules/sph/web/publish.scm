@@ -147,7 +147,9 @@
 (define (swp-recent-changes-task env)
   (let (target-dir (dirname (swp-env-swp-directory env)))
     (call-with-output-file (string-append target-dir "/recent.md")
-      (l (port) (swp-recent-changes target-dir port)))))
+      (l (port)
+        (swp-recent-changes target-dir port
+          #:recent-excludes (or (alist-ref (swp-env-config env) (q recent-excludes)) null))))))
 
 (define swp-default-config
   (alist-q md-scm-env (swp-md-scm-env-new)
