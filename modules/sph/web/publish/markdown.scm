@@ -90,7 +90,7 @@
     ; tree-transform* should be replaced with a simple recursive loop
     (tree-transform* a
       (l (a recurse dependencies)
-        "match %scm blocks and also remove the extra <code> tag inside <pre>" (debug-log a)
+        "match %scm blocks and also remove the extra <code> tag inside <pre>"
         (match a
           ( ( (quote pre) ((quote code) (quote (@)) (? scm-prefix? b)))
             (let (result (scm-eval b))
