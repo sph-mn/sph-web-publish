@@ -4,7 +4,7 @@
   (sph) (sph filesystem)
   (sph io) (sph list) (sph string) (sph web publish markdown) (sph web publish shtml))
 
-(export include-files link-files)
+(export include-files link-files include-files-reverse link-files-reverse)
 
 (define link-files-get-title
   (let*
@@ -50,3 +50,6 @@
         (and (not (directory? a))
           (shtml-include (string-append "/" (string-drop-prefix directory a)))))
       paths)))
+
+(define (include-files-reverse . a) (reverse (apply include-files a)))
+(define (link-files-reverse . a) (reverse (apply link-files a)))
