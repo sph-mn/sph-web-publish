@@ -160,7 +160,7 @@
     (alist-q before-upload null before-compile (list swp-recent-changes-task) after-compile null)
     sources-directory-name "sources"
     thumbnails-directory-name "thumbnails"
-    use-hardlinks #t thumbnail-size 100 rsync-arguments (list "--progress")))
+    use-hardlinks #t thumbnail-size 400 rsync-arguments (list "--progress")))
 
 (define (call-hook env name)
   (every (l (a) (a env)) (or (alists-ref (swp-env-config env) (q hooks) name) null)))

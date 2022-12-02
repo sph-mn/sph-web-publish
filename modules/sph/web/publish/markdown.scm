@@ -20,7 +20,7 @@
       number-bindings
       (q
         ( ( (sph web publish markdown scm-env) link-files include-files
-            link-files-reverse include-files-reverse))))))
+            link-files-reverse include-files-reverse include-images include-images-reverse))))))
 
 (define (md-shtml-adjust-heading-structure a)
   "convert an shtml structure (heading other ... heading other ...) to

@@ -4,7 +4,8 @@
   (sph) (sph filesystem)
   (sph io) (sph list) (sph string) (sph web publish markdown) (sph web publish shtml))
 
-(export include-files link-files include-files-reverse link-files-reverse)
+(export include-files link-files
+  include-files-reverse link-files-reverse include-images include-images-reverse)
 
 (define link-files-get-title
   (let*
@@ -25,31 +26,47 @@
             (if (file-exists? source) (swp-md-get-title source) (html-get-title full-path))))
         (else (pair #f #f))))))
 
+(define (include-file-paths directory paths)
+  (append-map
+    (l (a) (filter (compose not directory?) (filesystem-glob (string-append directory a)))) paths))
+
 (define (link-files directory . paths)
   "string:compiled-directory string ... -> shtml
    accepts file paths with optional wildcard characters like (sph filesystem) filesystem-glob.
    example: directory/**/*.html"
-  (let (paths (append-map (l (a) (filesystem-glob (string-append directory a))) paths))
+  (let (paths (include-file-paths directory paths))
     (shtml-links
       (list-sort-with-accessor string<? first
         (filter-map
           (l (a)
-            (and (not (directory? a))
-              (let*
-                ( (relative-path (string-drop-prefix directory a))
-                  (title (link-files-get-title directory relative-path a)) (description (tail title))
-                  (title (first title)) (web-path (string-append "/" relative-path)))
-                (list (or title (basename web-path)) web-path description))))
+            (let*
+              ( (relative-path (string-drop-prefix directory a))
+                (title (link-files-get-title directory relative-path a)) (description (tail title))
+                (title (first title)) (web-path (string-append "/" relative-path)))
+              (list (or title (basename web-path)) web-path description)))
           paths))
       #f)))
 
 (define (include-files directory . paths) "accepts file paths like link-files"
-  (let (paths (append-map (l (a) (filesystem-glob (string-append directory a))) paths))
-    (filter-map
-      (l (a)
-        (and (not (directory? a))
-          (shtml-include (string-append "/" (string-drop-prefix directory a)))))
-      paths)))
+  (let (paths (include-file-paths directory paths))
+    (filter-map (l (a) (shtml-include (string-append "/" (string-drop-prefix directory a)))) paths)))
+
+(define (include-images directory . paths) "accepts file paths like link-files"
+  (let*
+    ( (image-extensions (list "jpg" "png"))
+      (paths
+        (filter-map
+          (l (a)
+            (and (contains? image-extensions (filename-extension a))
+              (string-append "/" (string-drop-prefix directory a))))
+          (include-file-paths directory paths)))
+      (thumbnail-paths (map (l (a) (string-append (dirname a) "/thumbnails/" (basename a))) paths)))
+    (map
+      (l (path thumbnail-path)
+        (qq
+          (a (@ (href (unquote path)) (class "thumbnail")) (img (@ (src (unquote thumbnail-path)))))))
+      paths thumbnail-paths)))
 
 (define (include-files-reverse . a) (reverse (apply include-files a)))
+(define (include-images-reverse . a) (reverse (apply include-images a)))
 (define (link-files-reverse . a) (reverse (apply link-files a)))
