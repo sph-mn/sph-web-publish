@@ -87,7 +87,8 @@
     ( (leaf (l (path stat result) (and result (f path stat result))))
       (enter?
         (l (path stat result)
-          (and result (every (l (a) (not (string-prefix? a path))) ignored-paths))))
+          (and result (every (l (a) (not (string-prefix? a path))) ignored-paths)
+            (not (string-prefix? "." (basename path))))))
       (ignore (l (path stat result) result))
       (error
         (l (path stat errno result)
@@ -104,12 +105,11 @@
     (file-system-fold true leaf true up true error #t file-name)))
 
 (define (swp-create-thumbnail-proc size)
-  (let (gm-path (first-or-false (search-env-path (list "gm"))))
-    (if gm-path
+  (let (imagemagick-path (first-or-false (search-env-path (list "convert"))))
+    (if imagemagick-path
       (let* ((size (number->string size)) (size-string (string-append size "x" size)))
-        (l (path target-path)
-          (execute gm-path "convert"
-            "-size" size-string
-            path "-resize" size-string "+profile" "*" (string-append "jpeg:" target-path))))
+        (l (path target-path) "only take the first image from animations"
+          (execute imagemagick-path (string-append path "[0]")
+            "-resize" size-string "-quality" "96" "+profile" "*" target-path)))
       (begin (display-line "warning: gm utility not found. thumbnail processing deactivated")
         (const #t)))))

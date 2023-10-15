@@ -69,7 +69,7 @@
 (define swp-default-file-handlers
   (swp-file-handlers-normalise
     (list
-      (swp-file-handler-new "thumbnails" (list ".png" ".jpeg" ".jpg")
+      (swp-file-handler-new "thumbnails" (list ".png" ".jpeg" ".jpg" ".webp")
         #f
         (l (env target-path)
           (let*
@@ -81,7 +81,8 @@
                     (if (string-equal? "." target-dir) ""
                       (ensure-trailing-slash (dirname target-path)))
                     thumbnails-directory-name))))
-            (string-append (ensure-trailing-slash target-dir) (basename target-path))))
+            (string-append (ensure-trailing-slash target-dir)
+              (regexp-replace (basename target-path) "\\.webp|\\.png" ".jpg"))))
         (l (env path target-path) "create thumbnails for images"
           ((swp-env-create-thumbnail env) path target-path)))
       (swp-file-handler-new "sources" (list ".md" ".plcss" ".shtml" ".sjs" ".sxml" ".md")

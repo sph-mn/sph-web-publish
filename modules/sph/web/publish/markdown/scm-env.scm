@@ -53,14 +53,19 @@
 
 (define (include-images directory . paths) "accepts file paths like link-files"
   (let*
-    ( (image-extensions (list "jpg" "png"))
+    ( (image-extensions (list "jpg" "png" "webp"))
       (paths
         (filter-map
           (l (a)
             (and (contains? image-extensions (filename-extension a))
               (string-append "/" (string-drop-prefix directory a))))
           (include-file-paths directory paths)))
-      (thumbnail-paths (map (l (a) (string-append (dirname a) "/thumbnails/" (basename a))) paths)))
+      (thumbnail-paths
+        (map
+          (l (a)
+            (string-append (dirname a) "/thumbnails/"
+              (regexp-replace (basename a) "\\.webp|\\.png" ".jpg")))
+          paths)))
     (map
       (l (path thumbnail-path)
         (qq

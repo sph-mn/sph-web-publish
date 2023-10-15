@@ -51,7 +51,7 @@ commands
 * [sph-lib](https://github.com/sph-mn/sph-lib)
 * optional
   * rsync (for upload)
-  * graphicsmagick (for thumbnails)
+  * imagemagick (for thumbnails)
 
 # installation
 * copy or symlink `modules/*` into a directory in guiles load path. for example `cp -rt /usr/share/guile/site modules/*`
