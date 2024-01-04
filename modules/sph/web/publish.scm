@@ -212,9 +212,21 @@
               (append-map (l (a) (filter-map (l (a) (list-ref a 1)) a)) paths-and-handlers))
             (target-paths-duplicates (duplicates target-paths-flat)))
           (if (null? target-paths-duplicates) paths-and-handlers
-            (raise (list (q conflicting-target-paths) (string-join target-paths-duplicates ", ")))))))
+            (raise (list (q conflicting-target-paths) (string-join target-paths-duplicates ", "))))))
+      (target-path-index
+        (let (ht (ht-make-string (length paths-and-handlers)))
+          (each
+            (l (a)
+              (each (l (a) (apply (l (path target-path handler) (ht-set! ht target-path #t)) a)) a))
+            paths-and-handlers)
+          ht))
+      (deleted-files
+        (filter (l (a) (not (ht-contains? target-path-index a)))
+          (directory-tree (remove-trailing-slash target-dir) #:select?
+            (l (name stat-info) (eq? (q regular) (stat:type stat-info)))))))
     "paths-and-handlers: ((handler ...):pass ...)"
     "runs side-effecting procedures and use \"every\" to check if all return true"
+    (each (l (a) (delete-file a)) deleted-files)
     (and (call-hook env (q before-compile))
       (every
         (l (a)
