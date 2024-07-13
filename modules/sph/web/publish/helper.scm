@@ -105,7 +105,7 @@
     (file-system-fold true leaf true up true error #t file-name)))
 
 (define (swp-create-thumbnail-proc size)
-  (let (imagemagick-path (first-or-false (search-env-path (list "convert"))))
+  (let (imagemagick-path (first-or-false (search-env-path (list "magick"))))
     (if imagemagick-path
       (let* ((size (number->string size)) (size-string (string-append size "x" size)))
         (l (path target-path) "only take the first image from animations"
