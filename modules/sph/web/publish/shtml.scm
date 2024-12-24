@@ -16,8 +16,9 @@
     ((top-bar (and links (shtml-top-bar links))) (page-mtime (and mtime (shtml-page-mtime mtime))))
     (qq
       (html
-        (head (title (unquote title)) (unquote-splicing (map shtml-include-css css))
-          (meta (@ (name "viewport") (content "width=device-width,initial-scale=1"))) (unquote head))
+        (head (title (unquote title)) (link (@ (rel "icon") (href "data:,")))
+          (meta (@ (name "viewport") (content "width=device-width,initial-scale=1")))
+          (unquote-splicing (map shtml-include-css css)) (unquote head))
         (body (unquote (if body-class (qq (@ (class (unquote body-class)))) null))
           (unquote
             (if (or top-bar top)

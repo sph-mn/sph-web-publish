@@ -8,7 +8,7 @@
   (sph list) (sph other)
   (sph process) (sph string)
   (sph vector) (sph web publish helper)
-  (sph web publish markdown) (sph web publish shtml) (sxml simple) (srfi srfi-1))
+  (sph web publish markdown) (sph web publish shtml) (sph web publish sxml-simple) (srfi srfi-1))
 
 (export swp-atom-feed-task swp-cli-new
   swp-default-cli swp-default-config
