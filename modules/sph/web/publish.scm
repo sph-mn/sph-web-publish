@@ -66,6 +66,16 @@
 
 "one list of handlers for each pass"
 
+(define (make-sources-path env target-path)
+  (let*
+    ( (sources-directory-name (alist-ref-q (swp-env-config env) sources-directory-name))
+      (target-dir
+        (let (target-dir (dirname target-path))
+          (string-append
+            (if (string-equal? "." target-dir) "" (ensure-trailing-slash (dirname target-path)))
+            sources-directory-name))))
+    (string-append (ensure-trailing-slash target-dir) (basename target-path))))
+
 (define swp-default-file-handlers
   (swp-file-handlers-normalise
     (list
@@ -86,17 +96,7 @@
         (l (env path target-path) "create thumbnails for images"
           ((swp-env-create-thumbnail env) path target-path)))
       (swp-file-handler-new "sources" (list ".md" ".plcss" ".shtml" ".sjs" ".sxml" ".md")
-        #f
-        (l (env target-path)
-          (let*
-            ( (sources-directory-name (alist-ref-q (swp-env-config env) sources-directory-name))
-              (target-dir
-                (let (target-dir (dirname target-path))
-                  (string-append
-                    (if (string-equal? "." target-dir) ""
-                      (ensure-trailing-slash (dirname target-path)))
-                    sources-directory-name))))
-            (string-append (ensure-trailing-slash target-dir) (basename target-path))))
+        #f make-sources-path
         (l (env path target-path)
           "for files that are compiled, include the source in a subdirectory next to it.
            for example the source t.md will create t.html and sources/t.md"
@@ -130,7 +130,10 @@
               (shtml
                 (swp-md->shtml (alist-ref-q config md-scm-env) path
                   (swp-env-swp-target-directory env)))
-              (title (swp-md-get-title path)) (links (alist-ref-q config top-bar-links))
+              (title (swp-md-get-title path))
+              (links
+                (append (alist-ref-q config top-bar-links)
+                  (list (list (make-sources-path env (basename path)) "source"))))
               (mtime (stat:mtime (stat path)))
               (shtml
                 (layout shtml #:title

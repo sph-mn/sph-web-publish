@@ -5,7 +5,7 @@
   (sph io) (sph list) (sph string) (sph web publish markdown) (sph web publish shtml))
 
 (export include-files link-files
-  include-files-reverse link-files-reverse include-images include-images-reverse)
+  include-files-reverse link-files-reverse include-images include-images-reverse include-images-relative)
 
 (define link-files-get-title
   (let*
@@ -75,3 +75,6 @@
 (define (include-files-reverse . a) (reverse (apply include-files a)))
 (define (include-images-reverse . a) (reverse (apply include-images a)))
 (define (link-files-reverse . a) (reverse (apply link-files a)))
+
+(define (include-images-relative directory prefix . paths)
+  (map (l (a) (string-drop-prefix prefix a)) (apply include-images directory paths)))
