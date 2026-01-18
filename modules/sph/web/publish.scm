@@ -76,6 +76,21 @@
             sources-directory-name))))
     (string-append (ensure-trailing-slash target-dir) (basename target-path))))
 
+(define (find-up-path source-dir path steps)
+  (if (>= (string-length source-dir) (string-length path)) #f
+    (let* ((dir (dirname path)) (dir-file (string-append dir ".md")))
+      (if (file-exists? dir-file)
+        (string-append (string-multiply "../" steps) (string-append (basename dir) ".html"))
+        (find-up-path source-dir dir (+ 1 steps))))))
+
+(define (make-markdown-top-bar-links env path target-path config-links)
+  (let* ((source-dir (swp-env-directory env)) (relative-path (string-drop-prefix source-dir path)))
+    (append config-links
+      (if (string-equal? "index.md" relative-path) (list (list "/recent.html" "recent"))
+        (let (up-path (find-up-path source-dir path 1))
+          (if up-path (list (list up-path "up")) null)))
+      (list (list (make-sources-path env (basename path)) "source")))))
+
 (define swp-default-file-handlers
   (swp-file-handlers-normalise
     (list
@@ -132,8 +147,8 @@
                   (swp-env-swp-target-directory env)))
               (title (swp-md-get-title path))
               (links
-                (append (alist-ref-q config top-bar-links)
-                  (list (list (make-sources-path env (basename path)) "source"))))
+                (make-markdown-top-bar-links env path
+                  target-path (alist-ref-q config top-bar-links)))
               (mtime (stat:mtime (stat path)))
               (shtml
                 (layout shtml #:title
@@ -157,7 +172,7 @@
 
 (define swp-default-config
   (alist-q md-scm-env (swp-md-scm-env-new)
-    top-bar-links (list (list "/" "start") (list "/recent.html" "recent"))
+    top-bar-links (list (list "/" "start"))
     shtml-layout shtml-layout
     file-handlers swp-default-file-handlers
     hooks
