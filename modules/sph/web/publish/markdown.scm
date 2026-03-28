@@ -19,7 +19,7 @@
       symbol-bindings list-bindings
       number-bindings
       (q
-        ( ( (sph web publish markdown scm-env) link-files include-files
+        ( ( (sph web publish markdown scm-env) link-files include-files include-videos
             link-files-reverse include-files-reverse include-images include-images-reverse))))))
 
 (define (md-shtml-adjust-heading-structure a)

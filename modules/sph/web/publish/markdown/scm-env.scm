@@ -5,7 +5,8 @@
   (sph io) (sph list) (sph string) (sph web publish markdown) (sph web publish shtml))
 
 (export include-files link-files
-  include-files-reverse link-files-reverse include-images include-images-reverse include-images-relative)
+  include-files-reverse link-files-reverse
+  include-images include-images-reverse include-images-relative include-videos include-videos-reverse)
 
 (define link-files-get-title
   (let*
@@ -72,9 +73,25 @@
           (a (@ (href (unquote path)) (class "thumbnail")) (img (@ (src (unquote thumbnail-path)))))))
       paths thumbnail-paths)))
 
+(define (include-videos directory . paths) "accepts file paths like link-files"
+  (map
+    (l (path)
+      (let (web_path (string-append "/" (string-drop-prefix directory path)))
+        (qq
+          (div
+            (@ (class "included-video"))
+            (video
+              (@
+                (controls "controls")
+                (preload "metadata")
+                (style "max-width:100%; height:auto;"))
+              (source (@ (src (unquote web_path)))))))))
+    (include-file-paths directory paths)))
+
 (define (include-files-reverse . a) (reverse (apply include-files a)))
 (define (include-images-reverse . a) (reverse (apply include-images a)))
+(define (include-videos-reverse . a) (reverse (apply include-videos a)))
 (define (link-files-reverse . a) (reverse (apply link-files a)))
 
 (define (include-images-relative directory prefix . paths)
-  (map (l (a) (string-drop-prefix prefix a)) (apply include-images directory paths)))
+  (map (l a (string-drop-prefix prefix a)) (apply include-images directory paths)))
