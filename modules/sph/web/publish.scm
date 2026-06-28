@@ -34,7 +34,7 @@
 (define swp-file-handler-f (vector-accessor 4))
 (define (swp-file-handler-new name match last path-f f) (vector name match last path-f f))
 
-(define (swp-file-handlers-normalise . a)
+(define (swp-file-handlers-normalize . a)
   "accept strings, list of strings, booleans and procedures as
    file name matcher and create a matcher procedure.
    ensure that handler lists for 3 passes are given - only 3 passes are supported.
@@ -84,15 +84,18 @@
         (find-up-path source-dir dir (+ 1 steps))))))
 
 (define (make-markdown-top-bar-links env path target-path config-links)
-  (let* ((source-dir (swp-env-directory env)) (relative-path (string-drop-prefix source-dir path)))
+  (let*
+    ( (source-dir (swp-env-directory env)) (relative-path (string-drop-prefix source-dir path))
+      (disable-recent (alist-ref (swp-env-config env) (q disable-recent))))
     (append config-links
-      (if (string-equal? "index.md" relative-path) (list (list "/recent.html" "recent"))
+      (if (string-equal? "index.md" relative-path)
+        (if disable-recent null (list (list "/recent.html" "recent")))
         (let (up-path (find-up-path source-dir path 1))
           (if up-path (list (list up-path "up")) null)))
       (list (list (make-sources-path env (basename path)) "source")))))
 
 (define swp-default-file-handlers
-  (swp-file-handlers-normalise
+  (swp-file-handlers-normalize
     (list
       (swp-file-handler-new "thumbnails" (list ".png" ".jpeg" ".jpg" ".webp")
         #f
@@ -241,9 +244,8 @@
       (deleted-files
         (filter (l (a) (not (ht-contains? target-path-index a)))
           (directory-tree (remove-trailing-slash target-dir) #:select?
-            (l (name stat-info) (eq? (q regular) (stat:type stat-info)))))))
-    "paths-and-handlers: ((handler ...):pass ...)"
-    "runs side-effecting procedures and use \"every\" to check if all return true"
+            (l (name stat-info) (eq? (q regular) (stat:type stat-info))) #:enter?
+            (l (name stat-info) (eq? (q directory) (stat:type stat-info)))))))
     (each (l (a) (delete-file a)) deleted-files)
     (and (call-hook env (q before-compile))
       (every
@@ -327,7 +329,7 @@
           (file-handlers
             (let (a (alist-ref-q config file-handlers))
               (if (eq? swp-default-file-handlers a) (swp-remove-disabled-file-handlers config a)
-                (swp-file-handlers-normalise a))))
+                (swp-file-handlers-normalize a))))
           (config (alist-delete (q file-handlers) config)))
         (vector (q swp-env) directory
           swp-directory (string-append swp-directory "compiled/")
@@ -363,7 +365,7 @@
           #:description "update all files under .swp/compiled/")
         (("compile-and-upload") ((remote ...)) #:description "compile and on success upload")
         ( ("init") #:description
-          "initialise the current directory for sph-web-publish. creates a .swp directory")
+          "initialize the current directory for sph-web-publish. creates a .swp directory")
         (("upload") ((remote ...)) #:description "send files to the configured server")))))
 
 (define swp-default-cli (swp-cli-new swp-default-config))
